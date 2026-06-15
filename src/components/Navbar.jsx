@@ -10,7 +10,6 @@ export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const { isAdmin, logout, setShowLoginModal } = useAuth();
   const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
