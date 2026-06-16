@@ -85,83 +85,80 @@ export default function Countdown() {
   ];
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: isMobile ? 4 : 12,
-        flexWrap: 'nowrap',
-      }}
-    >
-      {units.map((u, i) => (
-        <React.Fragment key={u.label}>
+  <div
+    style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: isMobile ? 4 : 12,
+      flexWrap: 'nowrap',
+      width: '100%',
+    }}
+  >
+    {units.map((u, i) => (
+      <React.Fragment key={u.label}>
+        <div
+          style={{
+            width: isMobile ? 68 : 95,
+            minWidth: isMobile ? 68 : 95,
+            height: isMobile ? 90 : 120,
+
+            background: 'rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            borderRadius: 18,
+            boxSizing: 'border-box',
+
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+
+            flexShrink: 0,
+          }}
+        >
           <div
             style={{
-              background: 'rgba(255,255,255,0.12)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: 14,
-              border: '1px solid rgba(255,255,255,0.18)',
-
-              padding: isMobile ? '14px 10px' : '20px 28px',
-
-              // PERBAIKAN BUG
-              minWidth: isMobile ? 78 : 90,
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-
+              color: 'white',
+              fontWeight: 700,
+              fontFamily: 'Inter, sans-serif',
+              fontSize: isMobile ? 22 : 42,
+              lineHeight: 1,
+              letterSpacing: '-0.03em',
               textAlign: 'center',
+            }}
+          >
+            {u.value}
+          </div>
+
+          <div
+            style={{
+              marginTop: 10,
+              color: 'rgba(255,255,255,0.75)',
+              fontSize: isMobile ? 10 : 12,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              textAlign: 'center',
+            }}
+          >
+            {u.label}
+          </div>
+        </div>
+
+        {i < units.length - 1 && (
+          <div
+            style={{
+              color: 'rgba(255,255,255,0.7)',
+              fontWeight: 700,
+              fontSize: isMobile ? 18 : 34,
               flexShrink: 0,
             }}
           >
-            <div
-              style={{
-                fontSize: isMobile ? 26 : 42,
-                fontWeight: 700,
-                color: 'white',
-                fontFamily: 'Inter',
-                letterSpacing: '-0.02em',
-                lineHeight: 1,
-
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-
-                width: '100%',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {u.value}
-            </div>
-
-            <div
-              style={{
-                fontSize: isMobile ? 9 : 12,
-                color: 'rgba(255,255,255,0.75)',
-                marginTop: 5,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {u.label}
-            </div>
+            :
           </div>
-
-          {i < 3 && (
-            <span
-              style={{
-                fontSize: isMobile ? 20 : 36,
-                fontWeight: 700,
-                color: 'rgba(255,255,255,0.7)',
-                marginTop: isMobile ? -10 : -16,
-                flexShrink: 0,
-              }}
-            >
-              :
-            </span>
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  );
+        )}
+      </React.Fragment>
+    ))}
+  </div>
+);
 }
