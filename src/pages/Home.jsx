@@ -9,21 +9,27 @@ import { useAuth } from '../context/AuthContext';
 
 const ICON_MAP = { heart: Heart, gift: Gift, star: Star, calendar: Calendar };
 
+// 4 hearts, positions work on both mobile and desktop
+const HEARTS = [
+  { top: '14%', left: '6%',   size: 18, delay: '0s' },
+  { top: '28%', right: '8%',  size: 24, delay: '0.6s' },
+  { bottom: '22%', left: '12%', size: 14, delay: '1.2s' },
+  { bottom: '35%', right: '14%', size: 20, delay: '1.8s' },
+];
+
 export default function Home() {
   const { isAdmin } = useAuth();
   const [galleryPhotos, setGalleryPhotos] = useState([]);
   const [moments, setMoments] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
-
-  // Customizable photos
   const [polaroidUrl, setPolaroidUrl] = useState(null);
   const [lovePic1, setLovePic1] = useState(null);
   const [lovePic2, setLovePic2] = useState(null);
 
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth <= 640);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const fn = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
   }, []);
 
   useEffect(() => {
@@ -34,12 +40,11 @@ export default function Home() {
     getSetting('loveletter_photo2').then(d => d?.imageUrl && setLovePic2(d.imageUrl)).catch(() => {});
   }, []);
 
-  // Polaroid inner content
-  const PolaroidInner = ({ size }) => (
+  const PolaroidInner = ({ height }) => (
     polaroidUrl
-      ? <img src={polaroidUrl} alt="polaroid" style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 2, display: 'block' }} />
-      : <div style={{ width: '100%', aspectRatio: '1', background: 'linear-gradient(135deg,#c96a5e,#b5607a)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Heart size={size} fill="white" color="white" />
+      ? <img src={polaroidUrl} alt="polaroid" style={{ width: '100%', height: height || 'auto', aspectRatio: height ? undefined : '1', objectFit: 'cover', borderRadius: 2, display: 'block' }} />
+      : <div style={{ width: '100%', height: height || undefined, aspectRatio: height ? undefined : '1', background: 'linear-gradient(135deg,#c96a5e,#b5607a)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Heart size={height ? height * 0.35 : 32} fill="white" color="white" />
         </div>
   );
 
@@ -53,47 +58,37 @@ export default function Home() {
       }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.06) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 40%)' }} />
 
-        {!isMobile && [
-          { top: '15%', left: '8%', size: 18 },
-          { top: '30%', right: '10%', size: 24 },
-          { bottom: '25%', left: '15%', size: 14 },
-        ].map((p, i) => (
-          <div key={i} className="float-heart" style={{ position: 'absolute', ...p, opacity: 0.45 }}>
-            <Heart size={p.size} fill="white" color="white" />
+        {/* 4 floating hearts — shown on ALL screen sizes */}
+        {HEARTS.map((h, i) => (
+          <div key={i} className="float-heart" style={{
+            position: 'absolute', opacity: 0.45,
+            top: h.top, left: h.left, right: h.right, bottom: h.bottom,
+            animationDelay: h.delay,
+          }}>
+            <Heart size={h.size} fill="white" color="white" />
           </div>
         ))}
 
         {/* Desktop polaroid — absolute top-right */}
         {!isMobile && (
-          <div style={{ position: 'absolute', top: 100, right: 80, zIndex: 2 }}>
-            <div style={{
-              background: 'white', padding: '10px 10px 28px', borderRadius: 4,
-              transform: 'rotate(6deg)', boxShadow: '0 8px 30px rgba(0,0,0,0.25)', width: 160,
-            }}>
-              <PolaroidInner size={32} />
+          <div style={{ position: 'absolute', top: 96, right: 72, zIndex: 2 }}>
+            <div style={{ background: 'white', padding: '10px 10px 28px', borderRadius: 4, transform: 'rotate(6deg)', boxShadow: '0 8px 30px rgba(0,0,0,0.25)', width: 160 }}>
+              <PolaroidInner />
               <p style={{ textAlign: 'center', marginTop: 8, fontFamily: 'Dancing Script', fontSize: 16, color: '#666', whiteSpace: 'nowrap' }}>You & Me ♡</p>
             </div>
-            {/* Admin change button */}
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-              <PhotoSettingButton
-                settingKey="polaroid"
-                label="Ganti Foto"
-                onUpdated={setPolaroidUrl}
-              />
+              <PhotoSettingButton settingKey="polaroid" label="Ganti Foto" onUpdated={setPolaroidUrl} />
             </div>
           </div>
         )}
 
         <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 24px', maxWidth: 700, width: '100%' }}>
-          {/* Mobile polaroid — inline */}
+          {/* Mobile polaroid — inline above title */}
           {isMobile && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16, gap: 6 }}>
-              <div style={{
-                background: 'white', padding: '8px 8px 22px', borderRadius: 4,
-                transform: 'rotate(3deg)', boxShadow: '0 6px 20px rgba(0,0,0,0.25)', width: 110,
-              }}>
-                <PolaroidInner size={22} />
-                <p style={{ textAlign: 'center', marginTop: 6, fontFamily: 'Dancing Script', fontSize: 13, color: '#666', whiteSpace: 'nowrap' }}>You & Me ♡</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14, gap: 7 }}>
+              <div style={{ background: 'white', padding: '8px 8px 22px', borderRadius: 4, transform: 'rotate(3deg)', boxShadow: '0 6px 20px rgba(0,0,0,0.25)', width: 100 }}>
+                <PolaroidInner height={86} />
+                <p style={{ textAlign: 'center', marginTop: 6, fontFamily: 'Dancing Script', fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>You & Me ♡</p>
               </div>
               <PhotoSettingButton settingKey="polaroid" label="Ganti Foto" onUpdated={setPolaroidUrl} />
             </div>
@@ -129,14 +124,9 @@ export default function Home() {
                 <h2 style={{ fontFamily: 'Playfair Display', fontSize: 26, marginBottom: 8 }}>
                   Our Journey <Heart size={18} color="var(--color-primary)" style={{ display: 'inline', verticalAlign: 'middle' }} />
                 </h2>
-                <p style={{ color: 'var(--color-text-muted)', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
-                  Setiap cerita cinta itu unik,<br />dan ini adalah cerita kita.
-                </p>
-                <Link to="/timeline" className="btn-primary" style={{ fontSize: 13 }}>
-                  Lihat Timeline <ArrowRight size={14} />
-                </Link>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>Setiap cerita cinta itu unik,<br />dan ini adalah cerita kita.</p>
+                <Link to="/timeline" className="btn-primary" style={{ fontSize: 13 }}>Lihat Timeline <ArrowRight size={14} /></Link>
               </div>
-
               <div style={{ flex: 1, minWidth: 260, overflowX: 'auto' }}>
                 {moments.length === 0 ? (
                   <p style={{ color: 'var(--color-text-muted)', fontSize: 14, textAlign: 'center' }}>Tambahkan momen di halaman Timeline.</p>
@@ -151,12 +141,7 @@ export default function Home() {
                         const color = colors[i % colors.length];
                         return (
                           <div key={m.id} style={{ textAlign: 'center', flex: 1, minWidth: 70 }}>
-                            <div style={{
-                              width: 48, height: 48, borderRadius: '50%',
-                              background: 'var(--color-surface)', border: `2px solid ${color}`,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              margin: '0 auto 8px', boxShadow: `0 0 0 4px var(--color-bg)`,
-                            }}>
+                            <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--color-surface)', border: `2px solid ${color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px', boxShadow: `0 0 0 4px var(--color-bg)` }}>
                               <Icon size={18} color={color} fill={m.icon === 'heart' ? color : 'none'} />
                             </div>
                             <p style={{ fontSize: 10, color, fontWeight: 600, marginBottom: 2 }}>
@@ -188,7 +173,6 @@ export default function Home() {
               </div>
               <Link to="/gallery" className="btn-outline" style={{ fontSize: 13 }}>Lihat Semua <ArrowRight size={13} /></Link>
             </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
               {galleryPhotos.length > 0
                 ? galleryPhotos.map(photo => (
@@ -211,63 +195,58 @@ export default function Home() {
       {/* ── LOVE LETTER ─────────────────────────────────── */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
-          <div className="section-card" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 20 : 48, flexWrap: 'wrap' }}>
+          <div className="section-card" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 20 : 48, flexWrap: 'nowrap' }}>
 
-            {/* Polaroid stack — dengan foto yang bisa diganti */}
-            {!isMobile && (
+            {/* Polaroid stack — desktop: full; mobile: compact single */}
+            {!isMobile ? (
+              /* Desktop: two overlapping polaroids */
               <div style={{ position: 'relative', width: 200, height: 210, flexShrink: 0 }}>
-                {/* Photo 2 — behind */}
                 <div style={{ position: 'absolute', top: 20, left: 10, background: 'white', padding: '8px 8px 24px', transform: 'rotate(-8deg)', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', borderRadius: 4, width: 120 }}>
                   {lovePic1
                     ? <img src={lovePic1} alt="love1" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 2, display: 'block' }} />
                     : <div style={{ width: '100%', height: 90, background: 'linear-gradient(135deg,#e8857a,#b5607a)', borderRadius: 2 }} />
                   }
                 </div>
-                {/* Photo 1 — front */}
                 <div style={{ position: 'absolute', top: 0, left: 40, background: 'white', padding: '8px 8px 24px', transform: 'rotate(5deg)', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', borderRadius: 4, width: 120 }}>
                   {lovePic2
                     ? <img src={lovePic2} alt="love2" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 2, display: 'block' }} />
                     : <div style={{ width: '100%', height: 90, background: 'linear-gradient(135deg,#c96a5e,#d4607a)', borderRadius: 2 }} />
                   }
                 </div>
-                {/* Heart badge */}
                 <div style={{ position: 'absolute', bottom: 0, right: 0, width: 44, height: 44, borderRadius: '50%', background: 'var(--gradient-btn)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
                   <Heart size={20} fill="white" color="white" />
                 </div>
-
-                {/* Admin buttons */}
                 {isAdmin && (
-                  <div style={{ position: 'absolute', bottom: -32, left: 0, right: 0, display: 'flex', gap: 6, justifyContent: 'center' }}>
+                  <div style={{ position: 'absolute', bottom: -34, left: 0, right: 0, display: 'flex', gap: 5, justifyContent: 'center' }}>
                     <PhotoSettingButton settingKey="loveletter_photo1" label="Foto 1" onUpdated={setLovePic1} />
                     <PhotoSettingButton settingKey="loveletter_photo2" label="Foto 2" onUpdated={setLovePic2} />
                   </div>
                 )}
               </div>
+            ) : (
+              /* Mobile: single small polaroid to the left of text */
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div style={{ background: 'white', padding: '6px 6px 18px', borderRadius: 4, transform: 'rotate(-4deg)', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', width: 80 }}>
+                  {lovePic1
+                    ? <img src={lovePic1} alt="love" style={{ width: '100%', height: 68, objectFit: 'cover', borderRadius: 2, display: 'block' }} />
+                    : <div style={{ width: '100%', height: 68, background: 'linear-gradient(135deg,#e8857a,#b5607a)', borderRadius: 2 }} />
+                  }
+                </div>
+                {/* No admin buttons on mobile for love letter photos — too cluttered */}
+              </div>
             )}
 
+            {/* Text */}
             <div style={{ flex: 1, paddingTop: isAdmin && !isMobile ? 0 : 0 }}>
-              {isMobile && (
-                <div style={{ marginBottom: 14 }}>
-                  <Heart size={28} fill="var(--color-primary)" color="var(--color-primary)" style={{ animation: 'pulse 2s infinite' }} />
-                </div>
-              )}
-              <h2 style={{ fontFamily: 'Playfair Display', fontSize: isMobile ? 22 : 28, marginBottom: 10 }}>
-                Love Letter <Heart size={18} color="var(--color-primary)" style={{ display: 'inline', verticalAlign: 'middle' }} />
+              <h2 style={{ fontFamily: 'Playfair Display', fontSize: isMobile ? 20 : 28, marginBottom: 10 }}>
+                Love Letter <Heart size={16} color="var(--color-primary)" style={{ display: 'inline', verticalAlign: 'middle' }} />
               </h2>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: isMobile ? 13 : 14, lineHeight: 1.6, marginBottom: 18 }}>
                 Tempat untuk menyimpan kata-kata<br />terindah untuk satu sama lain.
               </p>
-              <Link to="/love-letter" className="btn-primary" style={{ fontSize: 14 }}>
-                Buka Love Letter <ArrowRight size={14} />
+              <Link to="/love-letter" className="btn-primary" style={{ fontSize: isMobile ? 13 : 14 }}>
+                Buka Love Letter <ArrowRight size={13} />
               </Link>
-
-              {/* Mobile: ganti foto love letter */}
-              {isMobile && isAdmin && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-                  <PhotoSettingButton settingKey="loveletter_photo1" label="Foto Polaroid 1" onUpdated={setLovePic1} />
-                  <PhotoSettingButton settingKey="loveletter_photo2" label="Foto Polaroid 2" onUpdated={setLovePic2} />
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -289,7 +268,7 @@ export default function Home() {
               <Instagram size={22} color="white" />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kami di Instagram</p>
+              <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kita di Instagram</p>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>@alcatales.haven</p>
             </div>
             <ArrowRight size={18} color="white" style={{ flexShrink: 0 }} />

@@ -4,22 +4,22 @@ import { Heart } from 'lucide-react';
 
 export default function OurStory() {
   return (
-      <div style={{ minHeight: '100vh', paddingTop: 64 }}>
-        {/* Header */}
-        <div style={{
-          background: 'var(--gradient-hero)', padding: '60px 24px 80px',
-          textAlign: 'center', position: 'relative',
-        }}>
-          {/* Floating hearts */}
-          {[...Array(5)].map((_, i) => (
-            <Heart key={i} size={14 + i * 4} fill="rgba(255,255,255,0.3)" color="rgba(255,255,255,0.3)"
-              style={{
-                position: 'absolute',
-                top: `${20 + i * 15}%`, left: `${10 + i * 18}%`,
-                animation: `floatHeart ${2 + i * 0.5}s ease-in-out infinite`,
-                animationDelay: `${i * 0.3}s`,
-              }} />
-          ))}
+    <div style={{ minHeight: '100vh', paddingTop: 64 }}>
+      {/* Header */}
+      <div style={{
+        background: 'var(--gradient-hero)', padding: '60px 24px 48px',
+        textAlign: 'center', position: 'relative',
+      }}>
+        {/* Floating hearts */}
+        {[...Array(5)].map((_, i) => (
+          <Heart key={i} size={14 + i * 4} fill="rgba(255,255,255,0.3)" color="rgba(255,255,255,0.3)"
+            style={{
+              position: 'absolute',
+              top: `${20 + i * 15}%`, left: `${10 + i * 18}%`,
+              animation: `floatHeart ${2 + i * 0.5}s ease-in-out infinite`,
+              animationDelay: `${i * 0.3}s`,
+            }} />
+        ))}
         <h1 style={{ fontFamily: 'Playfair Display', fontSize: 'clamp(32px,6vw,52px)', color: 'white', marginBottom: 8 }}>Our Story</h1>
         <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>Cerita cinta yang dimulai dari sebuah pertemuan sederhana.</p>
       </div>
@@ -27,8 +27,8 @@ export default function OurStory() {
       <div className="container" style={{ paddingTop: 64, paddingBottom: 80 }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
           {[
-            { title: 'Awal Pertemuan', date: 'April 2026', text: 'Semua dimulai dari sebuah pertemuan yang mungkin terlihat biasa, 01 April 2026. Ada sesuatu yang berbeda, sesuatu yang membuat hari itu terasa istimewa. Dari yang awalnya kami tidak mengenal satu sama lain, sampai kami mulai mengenal satu sama lain. Yang awalnya hanya obrolan soal selera musik, sekolah, bisa memanjang hingga ke obrolan lain. Hari demi hari berlalu, percakapan semakin intens dengan menceritakan keseharian masing-masing sampai ke hal-hal tidak penting lainnya.' },
-            { title: 'Jatuh Hati', date: '09 April 2026', text: 'Hari itu, 09 April 2026 pukul 18:15, adalah hari di mana segalanya berubah. Kami ternyata memiliki perasaan yang sama, perasaan yang tidak ingin dipendam lebih lama — memulai perjalanan yang indah ini. 19:17, kami berdua memutuskan untuk memulai hubungan yang lebih lanjut dan membangun sebuah komitmen bersama.' },
+            { title: 'Awal Pertemuan', date: 'April 2026', text: 'Semua dimulai dari sebuah pertemuan yang mungkin terlihat biasa, tapi terasa luar biasa. Ada sesuatu yang berbeda, sesuatu yang membuat hari itu terasa istimewa.' },
+            { title: 'Jatuh Hati', date: '09 April 2026', text: 'Hari itu, 09 April 2026 pukul 19:17, adalah hari di mana segalanya berubah. Dua hati yang bertemu dan memutuskan untuk bersama — memulai perjalanan yang indah ini.' },
             { title: 'Membangun Kenangan', date: 'Setiap Hari', text: 'Setiap hari bersama adalah kesempatan baru untuk menciptakan kenangan. Dari hal-hal kecil yang sederhana hingga momen-momen yang tak terlupakan, semua menjadi bagian dari cerita kita.' },
             { title: 'Masa Depan', date: 'Selamanya', text: 'Perjalanan ini baru saja dimulai. Ada banyak cerita yang masih menunggu untuk ditulis, banyak momen yang belum terjadi, dan banyak kebahagiaan yang akan kita ciptakan bersama.' },
           ].map((s, i) => (

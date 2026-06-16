@@ -2,17 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Plus, Trash2, X, Calendar, Gift, Star, Coffee, Film, MapPin, Images } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getMoments, addMoment, deleteMoment } from '../utils/dataService';
+import { getMoments, addMoment, deleteMoment, getGalleryByMoment } from '../utils/dataService';
 import MomentGallery from '../components/MomentGallery';
 
 const ICONS = { heart: Heart, gift: Gift, star: Star, coffee: Coffee, film: Film, map: MapPin, calendar: Calendar };
 const ICON_OPTIONS = [
-  { value: 'heart', label: '❤️ Heart' },
-  { value: 'gift', label: '🎁 Gift' },
-  { value: 'star', label: '⭐ Star' },
-  { value: 'coffee', label: '☕ Coffee' },
-  { value: 'film', label: '🎬 Film' },
-  { value: 'map', label: '📍 Tempat' },
+  { value: 'heart',    label: '❤️ Heart' },
+  { value: 'gift',     label: '🎁 Gift' },
+  { value: 'star',     label: '⭐ Star' },
+  { value: 'coffee',   label: '☕ Coffee' },
+  { value: 'film',     label: '🎬 Film' },
+  { value: 'map',      label: '📍 Tempat' },
   { value: 'calendar', label: '📅 Tanggal' },
 ];
 
@@ -24,12 +24,29 @@ export default function Timeline() {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [form, setForm] = useState({ title: '', description: '', date: '', icon: 'heart' });
   const [saving, setSaving] = useState(false);
+  // Track which moment IDs have photos (for non-admin)
+  const [momentHasPhotos, setMomentHasPhotos] = useState({});
 
   useEffect(() => { fetchMoments(); }, []);
 
   const fetchMoments = async () => {
     setLoading(true);
-    try { setMoments(await getMoments()); } catch (e) { console.error(e); }
+    try {
+      const data = await getMoments();
+      setMoments(data);
+      // For non-admin: check which moments actually have photos
+      if (!isAdmin) {
+        const checks = await Promise.all(
+          data.map(async m => {
+            const photos = await getGalleryByMoment(m.id);
+            return { id: m.id, hasPhotos: photos.length > 0 };
+          })
+        );
+        const map = {};
+        checks.forEach(c => { map[c.id] = c.hasPhotos; });
+        setMomentHasPhotos(map);
+      }
+    } catch (e) { console.error(e); }
     setLoading(false);
   };
 
@@ -51,11 +68,16 @@ export default function Timeline() {
     setMoments(prev => prev.filter(m => m.id !== id));
   };
 
+  const canSeeGallery = (momentId) => {
+    if (isAdmin) return true;
+    return momentHasPhotos[momentId] === true;
+  };
+
   return (
     <div style={{ minHeight: '100vh', paddingTop: 64 }}>
       {/* Header */}
       <div style={{
-        background: 'var(--gradient-hero)', padding: '60px 24px 80px',
+        background: 'var(--gradient-hero)', padding: '60px 24px 48px',
         textAlign: 'center', position: 'relative',
       }}>
         {/* Floating hearts */}
@@ -75,9 +97,7 @@ export default function Timeline() {
       <div className="container" style={{ paddingTop: 48, paddingBottom: 64 }}>
         {isAdmin && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 28 }}>
-            <button onClick={() => setShowAdd(true)} className="btn-primary">
-              <Plus size={16} /> Tambah Momen
-            </button>
+            <button onClick={() => setShowAdd(true)} className="btn-primary"><Plus size={16} /> Tambah Momen</button>
           </div>
         )}
 
@@ -99,15 +119,17 @@ export default function Timeline() {
               const Icon = ICONS[m.icon] || Heart;
               const isLeft = i % 2 === 0;
               const dateStr = m.date ? new Date(m.date + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+              const showGalleryBtn = canSeeGallery(m.id);
 
               return (
                 <div key={m.id} style={{
                   display: 'flex',
                   justifyContent: isLeft ? 'flex-end' : 'flex-start',
                   paddingRight: isLeft ? 'calc(50% + 28px)' : 0,
-                  paddingLeft: isLeft ? 0 : 'calc(50% + 28px)',
+                  paddingLeft:  isLeft ? 0 : 'calc(50% + 28px)',
                   marginBottom: 40, position: 'relative',
                 }}>
+                  {/* Dot */}
                   <div style={{
                     position: 'absolute', left: '50%', top: 20, transform: 'translateX(-50%)',
                     width: 44, height: 44, borderRadius: '50%',
@@ -118,16 +140,19 @@ export default function Timeline() {
                     <Icon size={18} color="var(--color-primary)" fill={m.icon === 'heart' ? 'var(--color-primary)' : 'none'} />
                   </div>
 
-                  <div style={{
-                    background: 'var(--color-surface)', borderRadius: 16,
-                    padding: '20px 22px', boxShadow: 'var(--card-shadow)',
-                    border: '1px solid var(--color-border)',
-                    position: 'relative', maxWidth: 280, width: '100%',
-                    cursor: 'pointer', transition: 'transform 0.2s',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                    onClick={() => setSelectedMoment(m)}
+                  {/* Card */}
+                  <div
+                    style={{
+                      background: 'var(--color-surface)', borderRadius: 16,
+                      padding: '20px 22px', boxShadow: 'var(--card-shadow)',
+                      border: '1px solid var(--color-border)',
+                      position: 'relative', maxWidth: 280, width: '100%',
+                      cursor: showGalleryBtn ? 'pointer' : 'default',
+                      transition: 'transform 0.2s',
+                    }}
+                    onMouseEnter={e => showGalleryBtn && (e.currentTarget.style.transform = 'translateY(-3px)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+                    onClick={() => showGalleryBtn && setSelectedMoment(m)}
                   >
                     {isAdmin && (
                       <button onClick={e => { e.stopPropagation(); handleDelete(m.id); }} style={{
@@ -137,10 +162,14 @@ export default function Timeline() {
                     )}
                     <p style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, marginBottom: 4 }}>{dateStr}</p>
                     <h3 style={{ fontFamily: 'Playfair Display', fontSize: 17, marginBottom: 6 }}>{m.title}</h3>
-                    {m.description && <p style={{ fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.5, marginBottom: 10 }}>{m.description}</p>}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--color-primary)', fontSize: 12, fontWeight: 500 }}>
-                      <Images size={13} /> Lihat Gallery
-                    </div>
+                    {m.description && (
+                      <p style={{ fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.5, marginBottom: showGalleryBtn ? 10 : 0 }}>{m.description}</p>
+                    )}
+                    {showGalleryBtn && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--color-primary)', fontSize: 12, fontWeight: 500 }}>
+                        <Images size={13} /> Lihat Gallery
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -156,18 +185,9 @@ export default function Timeline() {
             <button onClick={() => setShowAdd(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}><X size={20} /></button>
             <h3 style={{ fontFamily: 'Playfair Display', fontSize: 22, marginBottom: 24 }}>Tambah Momen</h3>
             <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label>Judul Momen</label>
-                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="cth: First Date" required />
-              </div>
-              <div>
-                <label>Tanggal</label>
-                <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
-              </div>
-              <div>
-                <label>Deskripsi</label>
-                <textarea rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Ceritakan momen ini..." />
-              </div>
+              <div><label>Judul Momen</label><input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="cth: First Date" required /></div>
+              <div><label>Tanggal</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required /></div>
+              <div><label>Deskripsi</label><textarea rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Ceritakan momen ini..." /></div>
               <div>
                 <label>Ikon</label>
                 <select value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))}>
