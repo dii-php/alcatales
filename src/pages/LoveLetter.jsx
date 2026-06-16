@@ -4,6 +4,41 @@ import { Heart, Plus, Trash2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getLoveLetters, addLoveLetter, deleteLoveLetter } from '../utils/dataService';
 
+// createdAt is now a plain ISO string (serialized in dataService)
+function toDate(ts) {
+  if (!ts) return null;
+  const d = new Date(ts);
+  return isNaN(d) ? null : d;
+}
+
+// Format a timestamp to UTC+8 string
+// mode 'card'  → "June 16, 2026 at 11:04:02 AM UTC+8"
+// mode 'modal' → "Sent on June 16, 2026 at 11:04:02 AM UTC+8"
+function formatDate(ts, mode = 'card') {
+  const date = toDate(ts);
+  if (!date) return '';
+
+  // Shift to UTC+8
+  const d = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+
+  const MONTHS = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December',
+  ];
+
+  const mon  = MONTHS[d.getUTCMonth()];
+  const day  = d.getUTCDate();
+  const year = d.getUTCFullYear();
+  let   h    = d.getUTCHours();
+  const m    = String(d.getUTCMinutes()).padStart(2, '0');
+  const s    = String(d.getUTCSeconds()).padStart(2, '0');
+  const ap   = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+
+  const str = `${mon} ${day}, ${year} at ${h}:${m}:${s} ${ap} UTC+8`;
+  return mode === 'modal' ? `Sent on ${str}` : str;
+}
+
 export default function LoveLetter() {
   const { isAdmin } = useAuth();
   const [letters, setLetters] = useState([]);
@@ -51,7 +86,6 @@ export default function LoveLetter() {
         </h1>
         <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>Tempat untuk menyimpan kata-kata terindah untuk satu sama lain.</p>
 
-        {/* Floating hearts */}
         {[...Array(5)].map((_, i) => (
           <Heart key={i} size={14 + i * 4} fill="rgba(255,255,255,0.3)" color="rgba(255,255,255,0.3)"
             style={{
@@ -75,10 +109,7 @@ export default function LoveLetter() {
         {loading ? (
           <div style={{ textAlign: 'center', padding: 80, color: 'var(--color-text-muted)' }}>Membuka kotak surat...</div>
         ) : letters.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '80px 24px',
-            border: '2px dashed var(--color-border)', borderRadius: 20,
-          }}>
+          <div style={{ textAlign: 'center', padding: '80px 24px', border: '2px dashed var(--color-border)', borderRadius: 20 }}>
             <Heart size={48} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
             <h3 style={{ fontFamily: 'Playfair Display', fontSize: 22, marginBottom: 8 }}>Kotak Surat Masih Kosong</h3>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>
@@ -109,13 +140,20 @@ export default function LoveLetter() {
                   }}><Trash2 size={14} /></button>
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                {/* From */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <Heart size={16} fill="var(--color-primary)" color="var(--color-primary)" />
                   <span style={{ fontFamily: 'Dancing Script', fontSize: 20, color: 'var(--color-primary)' }}>
                     Dari {letter.from}
                   </span>
                 </div>
 
+                {/* Timestamp — card mode */}
+                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 10, opacity: 0.7, fontStyle: 'italic' }}>
+                  {formatDate(letter.createdAt, 'card')}
+                </p>
+
+                {/* Preview */}
                 <p style={{
                   fontSize: 14, color: 'var(--color-text-muted)', lineHeight: 1.6,
                   display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
@@ -124,7 +162,7 @@ export default function LoveLetter() {
                   {letter.content}
                 </p>
 
-                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 12, opacity: 0.6 }}>
+                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 12, opacity: 0.5 }}>
                   Klik untuk membaca selengkapnya →
                 </p>
               </div>
@@ -133,7 +171,7 @@ export default function LoveLetter() {
         )}
       </div>
 
-      {/* Letter detail modal */}
+      {/* ── Letter detail modal ── */}
       {open && (
         <div className="modal-overlay" onClick={() => setOpen(null)}>
           <div className="modal-box" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
@@ -142,18 +180,24 @@ export default function LoveLetter() {
               background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)',
             }}><X size={20} /></button>
 
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
               <Heart size={28} fill="var(--color-primary)" color="var(--color-primary)" style={{ margin: '0 auto 8px' }} />
               <h2 style={{ fontFamily: 'Dancing Script', fontSize: 30, color: 'var(--color-primary)' }}>
                 Dari {open.from}
               </h2>
+              {/* Timestamp — modal mode with "Sent on" prefix */}
+              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 6, fontStyle: 'italic' }}>
+                {formatDate(open.createdAt, 'modal')}
+              </p>
             </div>
+
+            <div style={{ height: 1, background: 'var(--color-border)', marginBottom: 18 }} />
 
             <div style={{
               background: 'var(--color-surface2)', borderRadius: 12, padding: 20,
               fontFamily: 'Playfair Display', fontStyle: 'italic',
               lineHeight: 1.8, fontSize: 15, color: 'var(--color-text)',
-              whiteSpace: 'pre-wrap',
+              whiteSpace: 'pre-wrap', maxHeight: '55vh', overflowY: 'auto',
             }}>
               {open.content}
             </div>
@@ -161,7 +205,7 @@ export default function LoveLetter() {
         </div>
       )}
 
-      {/* Add letter modal */}
+      {/* ── Add letter modal ── */}
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>

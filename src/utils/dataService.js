@@ -6,14 +6,32 @@ import {
   setDoc, getDoc
 } from 'firebase/firestore';
 
-// ── GALLERY (semua foto, untuk home preview) ──────────────
+// Convert Firestore Timestamp to ISO string safely
+const toISO = (ts) => {
+  if (!ts) return null;
+  if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
+  if (ts.seconds !== undefined) return new Date(ts.seconds * 1000).toISOString();
+  return null;
+};
+
+// Serialize a Firestore doc — converts all Timestamp fields to ISO strings
+const serialize = (d) => {
+  const data = d.data();
+  return {
+    id: d.id,
+    ...data,
+    createdAt: toISO(data.createdAt) ?? null,
+    updatedAt: toISO(data.updatedAt) ?? null,
+  };
+};
+
+// ── GALLERY ───────────────────────────────────────────────
 export const getGallery = async () => {
   const q = query(collection(db, 'gallery'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map(serialize);
 };
 
-// ── GALLERY PER MOMEN ─────────────────────────────────────
 export const getGalleryByMoment = async (momentId) => {
   try {
     const q = query(
@@ -22,7 +40,7 @@ export const getGalleryByMoment = async (momentId) => {
       orderBy('createdAt', 'desc')
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snap.docs.map(serialize);
   } catch (e) {
     const all = await getGallery();
     return all.filter(item => item.momentId === momentId);
@@ -38,8 +56,7 @@ export const addGalleryItem = async ({ imageUrl, caption, momentId = null }) => 
 
 export const deleteGalleryItem = async (id) => deleteDoc(doc(db, 'gallery', id));
 
-// ── SITE SETTINGS (polaroid, love letter foto) ────────────
-// key: 'polaroid' | 'loveletter_photo1' | 'loveletter_photo2'
+// ── SITE SETTINGS ────────────────────────────────────────
 export const getSetting = async (key) => {
   try {
     const snap = await getDoc(doc(db, 'settings', key));
@@ -55,7 +72,7 @@ export const setSetting = async (key, data) => {
 export const getMoments = async () => {
   const q = query(collection(db, 'moments'), orderBy('date', 'asc'));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map(serialize);
 };
 
 export const addMoment = async ({ title, description, date, icon }) => {
@@ -71,7 +88,7 @@ export const deleteMoment = async (id) => deleteDoc(doc(db, 'moments', id));
 export const getLoveLetters = async () => {
   const q = query(collection(db, 'loveLetters'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map(serialize);
 };
 
 export const addLoveLetter = async ({ from, content }) => {
