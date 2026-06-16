@@ -76,7 +76,7 @@ export default function Gallery() {
         <h1 style={{ fontFamily: 'Playfair Display', fontSize: 'clamp(32px,6vw,52px)', color: 'white', marginBottom: 8 }}>
           Gallery Moments
         </h1>
-        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>Kumpulan momen berharga kita berdua.</p>
+        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>Kumpulan momen berharga kami berdua.</p>
       </div>
 
       <div className="container" style={{ paddingTop: 48, paddingBottom: 64 }}>

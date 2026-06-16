@@ -268,7 +268,7 @@ export default function Home() {
               <Instagram size={22} color="white" />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kita di Instagram</p>
+              <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kami di Instagram</p>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>@alcatales.haven</p>
             </div>
             <ArrowRight size={18} color="white" style={{ flexShrink: 0 }} />
