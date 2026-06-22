@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import {
   collection, addDoc, getDocs, deleteDoc, doc,
   orderBy, query, serverTimestamp, where,
-  setDoc, getDoc
+  setDoc, getDoc, updateDoc
 } from 'firebase/firestore';
 
 // Convert Firestore Timestamp to ISO string safely
@@ -25,7 +25,10 @@ const serialize = (d) => {
   };
 };
 
+export const PAGE_SIZE = 10;
+
 // ── GALLERY ───────────────────────────────────────────────
+// Returns ALL gallery items (used internally for pagination/filtering on client)
 export const getGallery = async () => {
   const q = query(collection(db, 'gallery'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
@@ -47,11 +50,16 @@ export const getGalleryByMoment = async (momentId) => {
   }
 };
 
-export const addGalleryItem = async ({ imageUrl, caption, momentId = null }) => {
+export const addGalleryItem = async ({ imageUrl, caption, momentId = null, cloudinaryId = null }) => {
   return addDoc(collection(db, 'gallery'), {
-    imageUrl, caption: caption || '', momentId,
+    imageUrl, caption: caption || '', momentId, cloudinaryId,
     createdAt: serverTimestamp(),
   });
+};
+
+// Assign / change which moment a gallery photo belongs to
+export const updateGalleryItemMoment = async (id, momentId) => {
+  return updateDoc(doc(db, 'gallery', id), { momentId: momentId || null });
 };
 
 export const deleteGalleryItem = async (id) => deleteDoc(doc(db, 'gallery', id));
@@ -85,6 +93,7 @@ export const addMoment = async ({ title, description, date, icon }) => {
 export const deleteMoment = async (id) => deleteDoc(doc(db, 'moments', id));
 
 // ── LOVE LETTERS ─────────────────────────────────────────
+// Returns ALL letters (client paginates)
 export const getLoveLetters = async () => {
   const q = query(collection(db, 'loveLetters'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
@@ -102,4 +111,12 @@ export const deleteLoveLetter = async (id) => deleteDoc(doc(db, 'loveLetters', i
 // ── EMAIL SUBSCRIBERS ────────────────────────────────────
 export const saveEmail = async (email) => {
   return addDoc(collection(db, 'subscribers'), { email, createdAt: serverTimestamp() });
+};
+
+// ── UPDATE MOMENT ─────────────────────────────────────────
+export const updateMoment = async (id, { title, description, date, icon }) => {
+  return updateDoc(doc(db, 'moments', id), {
+    title, description, date, icon,
+    updatedAt: serverTimestamp(),
+  });
 };

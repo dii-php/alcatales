@@ -1,10 +1,11 @@
 // src/pages/LoveLetter.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Heart, Plus, Trash2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getLoveLetters, addLoveLetter, deleteLoveLetter } from '../utils/dataService';
+import { getLoveLetters, addLoveLetter, deleteLoveLetter, PAGE_SIZE } from '../utils/dataService';
+import Pagination from '../components/Pagination';
 
-// createdAt is now a plain ISO string (serialized in dataService)
+// createdAt is a plain ISO string (serialized in dataService)
 function toDate(ts) {
   if (!ts) return null;
   const d = new Date(ts);
@@ -18,7 +19,6 @@ function formatDate(ts, mode = 'card') {
   const date = toDate(ts);
   if (!date) return '';
 
-  // Shift to UTC+8
   const d = new Date(date.getTime() + 8 * 60 * 60 * 1000);
 
   const MONTHS = [
@@ -47,6 +47,7 @@ export default function LoveLetter() {
   const [open, setOpen] = useState(null);
   const [form, setForm] = useState({ from: '', content: '' });
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
 
   useEffect(() => { fetchLetters(); }, []);
 
@@ -56,6 +57,17 @@ export default function LoveLetter() {
     setLoading(false);
   };
 
+  // ── Pagination ──
+  const totalPages = Math.max(1, Math.ceil(letters.length / PAGE_SIZE));
+  const pagedLetters = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return letters.slice(start, start + PAGE_SIZE);
+  }, [letters, page]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
   const handleAdd = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -63,6 +75,7 @@ export default function LoveLetter() {
       await addLoveLetter(form);
       setForm({ from: '', content: '' });
       setShowAdd(false);
+      setPage(1);
       await fetchLetters();
     } catch (err) { alert('Gagal menyimpan'); }
     setSaving(false);
@@ -78,7 +91,7 @@ export default function LoveLetter() {
     <div style={{ minHeight: '100vh', paddingTop: 64 }}>
       {/* Header */}
       <div style={{
-        background: 'var(--gradient-hero)', padding: '60px 24px 80px',
+        background: 'var(--gradient-hero)', padding: '60px 24px 70px',
         textAlign: 'center', position: 'relative',
       }}>
         <h1 style={{ fontFamily: 'Playfair Display', fontSize: 'clamp(32px,6vw,52px)', color: 'white', marginBottom: 8 }}>
@@ -117,57 +130,61 @@ export default function LoveLetter() {
             </p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
-            {letters.map(letter => (
-              <div key={letter.id}
-                style={{
-                  background: 'var(--color-surface)',
-                  borderRadius: 16, padding: '24px',
-                  boxShadow: 'var(--card-shadow)',
-                  border: '1px solid var(--color-border)',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'transform 0.2s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                onClick={() => setOpen(letter)}
-              >
-                {isAdmin && (
-                  <button onClick={e => { e.stopPropagation(); handleDelete(letter.id); }} style={{
-                    position: 'absolute', top: 12, right: 12,
-                    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)',
-                  }}><Trash2 size={14} /></button>
-                )}
+          <>
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+              Menampilkan {pagedLetters.length} dari {letters.length} surat
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+              {pagedLetters.map(letter => (
+                <div key={letter.id}
+                  style={{
+                    background: 'var(--color-surface)',
+                    borderRadius: 16, padding: '24px',
+                    boxShadow: 'var(--card-shadow)',
+                    border: '1px solid var(--color-border)',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'transform 0.2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                  onClick={() => setOpen(letter)}
+                >
+                  {isAdmin && (
+                    <button onClick={e => { e.stopPropagation(); handleDelete(letter.id); }} style={{
+                      position: 'absolute', top: 12, right: 12,
+                      background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)',
+                    }}><Trash2 size={14} /></button>
+                  )}
 
-                {/* From */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <Heart size={16} fill="var(--color-primary)" color="var(--color-primary)" />
-                  <span style={{ fontFamily: 'Dancing Script', fontSize: 20, color: 'var(--color-primary)' }}>
-                    Dari {letter.from}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <Heart size={16} fill="var(--color-primary)" color="var(--color-primary)" />
+                    <span style={{ fontFamily: 'Dancing Script', fontSize: 20, color: 'var(--color-primary)' }}>
+                      Dari {letter.from}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 10, opacity: 0.7, fontStyle: 'italic' }}>
+                    {formatDate(letter.createdAt, 'card')}
+                  </p>
+
+                  <p style={{
+                    fontSize: 14, color: 'var(--color-text-muted)', lineHeight: 1.6,
+                    display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}>
+                    {letter.content}
+                  </p>
+
+                  <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 12, opacity: 0.5 }}>
+                    Klik untuk membaca selengkapnya →
+                  </p>
                 </div>
+              ))}
+            </div>
 
-                {/* Timestamp — card mode */}
-                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 10, opacity: 0.7, fontStyle: 'italic' }}>
-                  {formatDate(letter.createdAt, 'card')}
-                </p>
-
-                {/* Preview */}
-                <p style={{
-                  fontSize: 14, color: 'var(--color-text-muted)', lineHeight: 1.6,
-                  display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                }}>
-                  {letter.content}
-                </p>
-
-                <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 12, opacity: 0.5 }}>
-                  Klik untuk membaca selengkapnya →
-                </p>
-              </div>
-            ))}
-          </div>
+            <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+          </>
         )}
       </div>
 
@@ -185,7 +202,6 @@ export default function LoveLetter() {
               <h2 style={{ fontFamily: 'Dancing Script', fontSize: 30, color: 'var(--color-primary)' }}>
                 Dari {open.from}
               </h2>
-              {/* Timestamp — modal mode with "Sent on" prefix */}
               <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 6, fontStyle: 'italic' }}>
                 {formatDate(open.createdAt, 'modal')}
               </p>

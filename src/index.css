@@ -61,8 +61,10 @@ body {
 .font-display { font-family: 'Playfair Display', serif; }
 .font-script { font-family: 'Dancing Script', cursive; }
 
-/* Transitions */
-* { transition: background-color 0.3s ease, border-color 0.3s ease; }
+/* Transitions — scoped, NOT global wildcard (huge perf cost on low-end devices) */
+body, .section-card, .btn-primary, .btn-outline, input, textarea, select, a {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
 
 /* Utilities */
 .btn-primary {
@@ -99,17 +101,17 @@ body {
 }
 .btn-outline:hover { background: var(--color-primary); color: white; }
 
-/* Modal overlay */
+/* Modal overlay — solid color instead of backdrop-filter (blur is expensive on low-end GPUs) */
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(4px);
+  background: rgba(20,12,12,0.68);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
 }
+[data-theme="midnight"] .modal-overlay { background: rgba(5,3,10,0.75); }
 .modal-box {
   background: var(--color-surface);
   border-radius: 20px;
@@ -224,4 +226,87 @@ input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0px 1000px var(--color-surface) inset !important;
   -webkit-text-fill-color: var(--color-text) !important;
   border-color: var(--color-primary) !important;
+}
+
+
+/* ── PERFORMANCE: respect reduced motion preference ──────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Hint browser to optimize floating heart animations */
+.float-heart {
+  will-change: transform, opacity;
+}
+
+/* ── COUNTDOWN (CSS classes — avoids recreating inline style objects every tick) ── */
+.cd-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.cd-box {
+  width: 95px;
+  min-width: 95px;
+  height: 120px;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 18px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+.cd-box--mobile {
+  width: 68px;
+  min-width: 68px;
+  height: 90px;
+  border-radius: 14px;
+  backdrop-filter: none; /* skip blur entirely on mobile boxes — biggest perf win on phones */
+  background: rgba(255,255,255,0.16);
+}
+
+.cd-value {
+  color: white;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-align: center;
+  font-variant-numeric: tabular-nums; /* prevents width jitter as digits change */
+}
+.cd-value--mobile { font-size: 22px; }
+
+.cd-label {
+  margin-top: 10px;
+  color: rgba(255,255,255,0.75);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.cd-label--mobile { font-size: 10px; margin-top: 6px; }
+
+.cd-colon {
+  color: rgba(255,255,255,0.7);
+  font-weight: 700;
+  font-size: 34px;
+  flex-shrink: 0;
+}
+.cd-colon--mobile { font-size: 18px; }
+
+@media (max-width: 480px) {
+  .cd-row { gap: 4px; }
 }

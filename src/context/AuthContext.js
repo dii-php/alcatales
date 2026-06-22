@@ -2,24 +2,32 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
-
 export const useAuth = () => useContext(AuthContext);
+
+const STORAGE_KEY = 'alca_admin';
 
 export const AuthProvider = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
-    const adminSession = sessionStorage.getItem('alca_admin');
-    if (adminSession === 'true') setIsAdmin(true);
+    // Check both sessionStorage (tab-session) and localStorage (remember me)
+    const session = sessionStorage.getItem(STORAGE_KEY);
+    const persisted = localStorage.getItem(STORAGE_KEY);
+    if (session === 'true' || persisted === 'true') setIsAdmin(true);
   }, []);
 
-  const login = (username, password) => {
+  const login = (username, password, rememberMe = false) => {
     const adminUser = process.env.REACT_APP_ADMIN_USERNAME || 'aldi';
     const adminPass = process.env.REACT_APP_ADMIN_PASSWORD || 'admin123';
     if (username === adminUser && password === adminPass) {
       setIsAdmin(true);
-      sessionStorage.setItem('alca_admin', 'true');
+      sessionStorage.setItem(STORAGE_KEY, 'true');
+      if (rememberMe) {
+        localStorage.setItem(STORAGE_KEY, 'true');
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
       return true;
     }
     return false;
@@ -27,7 +35,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setIsAdmin(false);
-    sessionStorage.removeItem('alca_admin');
+    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   return (
