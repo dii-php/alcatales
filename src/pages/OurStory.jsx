@@ -27,8 +27,8 @@ export default function OurStory() {
       <div className="container" style={{ paddingTop: 64, paddingBottom: 80 }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
           {[
-            { title: 'Awal Pertemuan', date: 'April 2026', text: 'Semua dimulai dari sebuah pertemuan yang mungkin terlihat biasa, tapi terasa luar biasa. Ada sesuatu yang berbeda, sesuatu yang membuat hari itu terasa istimewa.' },
-            { title: 'Jatuh Hati', date: '09 April 2026', text: 'Hari itu, 09 April 2026 pukul 19:17, adalah hari di mana segalanya berubah. Dua hati yang bertemu dan memutuskan untuk bersama — memulai perjalanan yang indah ini.' },
+            { title: 'Awal Pertemuan', date: 'April 2026', text: '01 April 2026 merupakan hari di mana kami berkenalan pertama kali. Obrolan terasa sangat menyenangkan. Kami berawal dari stranger yang kemudian mulai menanyakan nama, sekolah, dan selera musik masing-masing. Tak terasa dari situ mulai timbul obrolan yang lebih intens bahkan sampai ke hal-hal tidak penting sekalipun.' },
+            { title: 'Jatuh Hati', date: '09 April 2026', text: 'Hari itu, 09 April 2026 pukul 18:15 adalah hari kami mengutarakan perasaan masing-masing. Ternyata kami berdua memiliki perasaan yang sama, hingga akhirnya 19:17 WITA kami memutuskan untuk membangun sebuah komitmen dan menjalin hubungan lebih lanjut.' },
             { title: 'Membangun Kenangan', date: 'Setiap Hari', text: 'Setiap hari bersama adalah kesempatan baru untuk menciptakan kenangan. Dari hal-hal kecil yang sederhana hingga momen-momen yang tak terlupakan, semua menjadi bagian dari cerita kita.' },
             { title: 'Masa Depan', date: 'Selamanya', text: 'Perjalanan ini baru saja dimulai. Ada banyak cerita yang masih menunggu untuk ditulis, banyak momen yang belum terjadi, dan banyak kebahagiaan yang akan kita ciptakan bersama.' },
           ].map((s, i) => (
