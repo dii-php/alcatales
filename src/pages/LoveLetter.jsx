@@ -1,53 +1,97 @@
 // src/pages/LoveLetter.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { Heart, Plus, Trash2, X } from 'lucide-react';
+import { Heart, Plus, Trash2, X, Pencil, ExternalLink, Music, Youtube } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getLoveLetters, addLoveLetter, deleteLoveLetter, PAGE_SIZE } from '../utils/dataService';
+import { getLoveLetters, addLoveLetter, deleteLoveLetter, updateLoveLetter, PAGE_SIZE } from '../utils/dataService';
 import Pagination from '../components/Pagination';
+import YouTubeSearch from '../components/YouTubeSearch';
 
-// createdAt is a plain ISO string (serialized in dataService)
+// ── Date helpers ─────────────────────────────────────────
 function toDate(ts) {
   if (!ts) return null;
+  if (typeof ts.toDate === 'function') return ts.toDate();
+  if (ts.seconds !== undefined) return new Date(ts.seconds * 1000);
   const d = new Date(ts);
   return isNaN(d) ? null : d;
 }
 
-// Format a timestamp to UTC+8 string
-// mode 'card'  → "June 16, 2026 at 11:04:02 AM UTC+8"
-// mode 'modal' → "Sent on June 16, 2026 at 11:04:02 AM UTC+8"
-function formatDate(ts, mode = 'card') {
+// 24-hour format, UTC+8
+function formatDate(ts, prefix = false) {
   const date = toDate(ts);
   if (!date) return '';
-
   const d = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-
-  const MONTHS = [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December',
-  ];
-
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const mon  = MONTHS[d.getUTCMonth()];
   const day  = d.getUTCDate();
   const year = d.getUTCFullYear();
-  let   h    = d.getUTCHours();
+  const h    = String(d.getUTCHours()).padStart(2, '0');
   const m    = String(d.getUTCMinutes()).padStart(2, '0');
   const s    = String(d.getUTCSeconds()).padStart(2, '0');
-  const ap   = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-
-  const str = `${mon} ${day}, ${year} at ${h}:${m}:${s} ${ap} UTC+8`;
-  return mode === 'modal' ? `Sent on ${str}` : str;
+  const str  = `${mon} ${day}, ${year} at ${h}:${m}:${s} UTC+8`;
+  return prefix ? `Sent on ${str}` : str;
 }
 
+// ── Empty form ────────────────────────────────────────────
+const EMPTY_FORM = { from: '', content: '', song: null };
+
+// ── YouTube embed card (compact, in modal/card) ───────────
+function SongCard({ songId, songTitle, songThumbnail, channelTitle, compact = false }) {
+  if (!songId) return null;
+  return (
+    <div style={{
+      borderRadius: compact ? 10 : 14,
+      overflow: 'hidden',
+      background: 'var(--color-surface2)',
+      border: '1px solid var(--color-border)',
+      marginBottom: compact ? 10 : 16,
+    }}>
+      {compact ? (
+        /* Card view: thumbnail + title only, no iframe (perf) */
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+          {songThumbnail
+            ? <img src={songThumbnail} alt={songTitle} style={{ width: 44, height: 33, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+            : <div style={{ width: 44, height: 33, borderRadius: 6, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Music size={14} color="#aaa" />
+              </div>
+          }
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{songTitle}</p>
+            {channelTitle && <p style={{ fontSize: 10, color: 'var(--color-text-muted)', margin: 0 }}>{channelTitle}</p>}
+          </div>
+          <Youtube size={14} color="#ff0000" style={{ flexShrink: 0 }} />
+        </div>
+      ) : (
+        /* Modal view: full iframe embed */
+        <div style={{ aspectRatio: '16/9' }}>
+          <iframe
+            width="100%" height="100%"
+            src={`https://www.youtube.com/embed/${songId}?rel=0&modestbranding=1`}
+            title={songTitle || 'Song'}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            loading="lazy"
+            style={{ display: 'block' }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────
 export default function LoveLetter() {
   const { isAdmin } = useAuth();
-  const [letters, setLetters] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [open, setOpen] = useState(null);
-  const [form, setForm] = useState({ from: '', content: '' });
-  const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState(1);
+  const navigate    = useNavigate();
+  const [letters, setLetters]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [page, setPage]         = useState(1);
+  const [open, setOpen]         = useState(null); // letter open in modal
+  const [modalMode, setModalMode] = useState(null); // 'add' | 'edit' | null
+  const [editTarget, setEditTarget] = useState(null);
+  const [form, setForm]         = useState(EMPTY_FORM);
+  const [saving, setSaving]     = useState(false);
 
   useEffect(() => { fetchLetters(); }, []);
 
@@ -57,73 +101,87 @@ export default function LoveLetter() {
     setLoading(false);
   };
 
-  // ── Pagination ──
-  const totalPages = Math.max(1, Math.ceil(letters.length / PAGE_SIZE));
+  // Pagination
+  const totalPages   = Math.max(1, Math.ceil(letters.length / PAGE_SIZE));
   const pagedLetters = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
     return letters.slice(start, start + PAGE_SIZE);
   }, [letters, page]);
+  useEffect(() => { if (page > totalPages) setPage(Math.max(1, totalPages)); }, [totalPages]);
 
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [totalPages, page]);
+  // Open add modal
+  const openAdd = () => { setForm(EMPTY_FORM); setEditTarget(null); setModalMode('add'); };
+  // Open edit modal
+  const openEdit = (letter) => {
+    setForm({
+      from: letter.from || '',
+      content: letter.content || '',
+      song: letter.songId ? { id: letter.songId, title: letter.songTitle, thumbnail: letter.songThumbnail, channelTitle: letter.channelTitle || '' } : null,
+    });
+    setEditTarget(letter);
+    setModalMode('edit');
+  };
+  const closeModal = () => { setModalMode(null); setEditTarget(null); };
 
-  const handleAdd = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    const payload = {
+      from:           form.from,
+      content:        form.content,
+      songId:         form.song?.id || null,
+      songTitle:      form.song?.title || null,
+      songThumbnail:  form.song?.thumbnail || null,
+      channelTitle:   form.song?.channelTitle || null,
+    };
     try {
-      await addLoveLetter(form);
-      setForm({ from: '', content: '' });
-      setShowAdd(false);
-      setPage(1);
+      if (modalMode === 'add') {
+        await addLoveLetter(payload);
+        setPage(1);
+      } else {
+        await updateLoveLetter(editTarget.id, payload);
+        // update local state too so modal reflects change immediately
+        setLetters(prev => prev.map(l => l.id === editTarget.id ? { ...l, ...payload } : l));
+        if (open?.id === editTarget.id) setOpen(prev => ({ ...prev, ...payload }));
+      }
+      closeModal();
       await fetchLetters();
-    } catch (err) { alert('Gagal menyimpan'); }
+    } catch (err) { alert('Gagal menyimpan.'); }
     setSaving(false);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Hapus surat ini?')) return;
     await deleteLoveLetter(id);
-    setLetters(letters.filter(l => l.id !== id));
+    setLetters(prev => prev.filter(l => l.id !== id));
+    if (open?.id === id) setOpen(null);
   };
 
   return (
     <div style={{ minHeight: '100vh', paddingTop: 64 }}>
       {/* Header */}
-      <div style={{
-        background: 'var(--gradient-hero)', padding: '60px 24px 70px',
-        textAlign: 'center', position: 'relative',
-      }}>
-        <h1 style={{ fontFamily: 'Playfair Display', fontSize: 'clamp(32px,6vw,52px)', color: 'white', marginBottom: 8 }}>
-          Love Letter
-        </h1>
-        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>Tempat untuk menyimpan kata-kata terindah untuk satu sama lain.</p>
-
-        {[...Array(5)].map((_, i) => (
-          <Heart key={i} size={14 + i * 4} fill="rgba(255,255,255,0.3)" color="rgba(255,255,255,0.3)"
-            style={{
-              position: 'absolute',
-              top: `${20 + i * 15}%`, left: `${10 + i * 18}%`,
-              animation: `floatHeart ${2 + i * 0.5}s ease-in-out infinite`,
-              animationDelay: `${i * 0.3}s`,
-            }} />
+      <div style={{ background: 'var(--gradient-hero)', padding: '60px 24px 72px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        {[...Array(3)].map((_, i) => (
+          <Heart key={i} size={14 + i * 5} fill="rgba(255,255,255,0.3)" color="rgba(255,255,255,0.3)"
+            style={{ position: 'absolute', top: `${18 + i * 22}%`, left: `${8 + i * 22}%`,
+              animation: `floatHeart ${2.2 + i * 0.6}s ease-in-out infinite`, animationDelay: `${i * 0.3}s`, pointerEvents: 'none' }} />
         ))}
+        <h1 style={{ fontFamily: 'Playfair Display', fontSize: 'clamp(32px,6vw,52px)', color: 'white', marginBottom: 8 }}>Love Letter</h1>
+        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>Tempat untuk menyimpan kata-kata terindah untuk satu sama lain.</p>
       </div>
 
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 64 }}>
+      <div className="container" style={{ paddingTop: 36, paddingBottom: 64 }}>
         {isAdmin && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 28 }}>
-            <button onClick={() => setShowAdd(true)} className="btn-primary">
-              <Plus size={16} /> Tulis Surat
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
+            <button onClick={openAdd} className="btn-primary"><Plus size={15} /> Tulis Surat</button>
           </div>
         )}
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 80, color: 'var(--color-text-muted)' }}>Membuka kotak surat...</div>
         ) : letters.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 24px', border: '2px dashed var(--color-border)', borderRadius: 20 }}>
-            <Heart size={48} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
+          <div style={{ textAlign: 'center', padding: '72px 24px', border: '2px dashed var(--color-border)', borderRadius: 20 }}>
+            <Heart size={44} color="var(--color-border)" style={{ margin: '0 auto 14px' }} />
             <h3 style={{ fontFamily: 'Playfair Display', fontSize: 22, marginBottom: 8 }}>Kotak Surat Masih Kosong</h3>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>
               {isAdmin ? 'Klik "Tulis Surat" untuk menambahkan surat cinta pertama.' : 'Belum ada surat cinta. Nantikan ya!'}
@@ -131,56 +189,88 @@ export default function LoveLetter() {
           </div>
         ) : (
           <>
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
-              Menampilkan {pagedLetters.length} dari {letters.length} surat
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
-              {pagedLetters.map(letter => (
-                <div key={letter.id}
-                  style={{
-                    background: 'var(--color-surface)',
-                    borderRadius: 16, padding: '24px',
-                    boxShadow: 'var(--card-shadow)',
-                    border: '1px solid var(--color-border)',
-                    cursor: 'pointer',
-                    position: 'relative',
-                    transition: 'transform 0.2s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                  onClick={() => setOpen(letter)}
-                >
-                  {isAdmin && (
-                    <button onClick={e => { e.stopPropagation(); handleDelete(letter.id); }} style={{
-                      position: 'absolute', top: 12, right: 12,
-                      background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)',
-                    }}><Trash2 size={14} /></button>
-                  )}
+            {/* Top bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Menampilkan {pagedLetters.length} dari {letters.length} surat</p>
+              <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} compact />
+            </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <Heart size={16} fill="var(--color-primary)" color="var(--color-primary)" />
-                    <span style={{ fontFamily: 'Dancing Script', fontSize: 20, color: 'var(--color-primary)' }}>
-                      Dari {letter.from}
-                    </span>
+            {/* Cards grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
+              {pagedLetters.map(letter => {
+                const hasSong = !!letter.songId;
+                return (
+                  <div
+                    key={letter.id}
+                    className={`letter-card ${hasSong ? 'letter-card--with-song' : ''}`}
+                    onClick={() => setOpen(letter)}
+                  >
+                    {/* Admin actions — toolbar di atas embed lagu (hover-reveal, icon-only) */}
+                    {isAdmin && hasSong && (
+                      <div className="letter-card__toolbar" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={e => { e.stopPropagation(); openEdit(letter); }}
+                          className="letter-card__action-btn letter-card__action-btn--edit"
+                          title="Edit"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDelete(letter.id); }}
+                          className="letter-card__action-btn letter-card__action-btn--del"
+                          title="Hapus"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Admin actions — gaya absolute lama untuk card tanpa lagu */}
+                    {isAdmin && !hasSong && (
+                      <div className="letter-card__actions">
+                        <button onClick={e => { e.stopPropagation(); openEdit(letter); }} title="Edit" className="letter-card__action-btn letter-card__action-btn--edit">
+                          <Pencil size={12} />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); handleDelete(letter.id); }} title="Hapus" className="letter-card__action-btn letter-card__action-btn--del">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Song thumbnail strip (if has song) */}
+                    {hasSong && (
+                      <SongCard songId={letter.songId} songTitle={letter.songTitle} songThumbnail={letter.songThumbnail} channelTitle={letter.channelTitle} compact />
+                    )}
+
+                    {/* From */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                      <Heart size={15} fill="var(--color-primary)" color="var(--color-primary)" />
+                      <span style={{ fontFamily: 'Dancing Script', fontSize: 20, color: 'var(--color-primary)' }}>Dari {letter.from}</span>
+                    </div>
+
+                    {/* Date */}
+                    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 10, opacity: 0.7, fontStyle: 'italic' }}>
+                      {formatDate(letter.createdAt)}
+                    </p>
+
+                    {/* Content preview */}
+                    <p style={{ fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: 12 }}>
+                      {letter.content}
+                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', opacity: 0.5 }}>Klik untuk membaca →</span>
+                      <button
+                        onClick={e => { e.stopPropagation(); navigate(`/love-letter/${letter.id}`); }}
+                        title="Buka halaman penuh"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', padding: 4, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+                      >
+                        <ExternalLink size={12} /> Buka
+                      </button>
+                    </div>
                   </div>
-
-                  <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 10, opacity: 0.7, fontStyle: 'italic' }}>
-                    {formatDate(letter.createdAt, 'card')}
-                  </p>
-
-                  <p style={{
-                    fontSize: 14, color: 'var(--color-text-muted)', lineHeight: 1.6,
-                    display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}>
-                    {letter.content}
-                  </p>
-
-                  <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 12, opacity: 0.5 }}>
-                    Klik untuk membaca selengkapnya →
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
@@ -191,29 +281,38 @@ export default function LoveLetter() {
       {/* ── Letter detail modal ── */}
       {open && (
         <div className="modal-overlay" onClick={() => setOpen(null)}>
-          <div className="modal-box" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setOpen(null)} style={{
-              position: 'absolute', top: 16, right: 16,
-              background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)',
-            }}><X size={20} /></button>
+          <div className="modal-box" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setOpen(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}><X size={20} /></button>
 
+            {/* Open full page button */}
+            <button
+              onClick={() => navigate(`/love-letter/${open.id}`)}
+              style={{ position: 'absolute', top: 14, right: 46, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+              title="Buka halaman penuh"
+            >
+              <ExternalLink size={18} />
+            </button>
+
+            {/* Header */}
             <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <Heart size={28} fill="var(--color-primary)" color="var(--color-primary)" style={{ margin: '0 auto 8px' }} />
-              <h2 style={{ fontFamily: 'Dancing Script', fontSize: 30, color: 'var(--color-primary)' }}>
-                Dari {open.from}
-              </h2>
-              <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-                {formatDate(open.createdAt, 'modal')}
-              </p>
+              <Heart size={26} fill="var(--color-primary)" color="var(--color-primary)" style={{ margin: '0 auto 8px' }} />
+              <h2 style={{ fontFamily: 'Dancing Script', fontSize: 28, color: 'var(--color-primary)' }}>Dari {open.from}</h2>
+              <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 5, fontStyle: 'italic' }}>{formatDate(open.createdAt, true)}</p>
             </div>
 
-            <div style={{ height: 1, background: 'var(--color-border)', marginBottom: 18 }} />
+            <div style={{ height: 1, background: 'var(--color-border)', marginBottom: 16 }} />
 
+            {/* Song embed (full iframe in modal) */}
+            {open.songId && (
+              <SongCard songId={open.songId} songTitle={open.songTitle} songThumbnail={open.songThumbnail} channelTitle={open.channelTitle} compact={false} />
+            )}
+
+            {/* Letter body */}
             <div style={{
-              background: 'var(--color-surface2)', borderRadius: 12, padding: 20,
-              fontFamily: 'Playfair Display', fontStyle: 'italic',
+              background: 'var(--color-surface2)', borderRadius: 12, padding: 18,
+              fontFamily: 'Patrick Hand', fontStyle: 'italic',
               lineHeight: 1.8, fontSize: 15, color: 'var(--color-text)',
-              whiteSpace: 'pre-wrap', maxHeight: '55vh', overflowY: 'auto',
+              whiteSpace: 'pre-wrap', maxHeight: '40vh', overflowY: 'auto',
             }}>
               {open.content}
             </div>
@@ -221,37 +320,99 @@ export default function LoveLetter() {
         </div>
       )}
 
-      {/* ── Add letter modal ── */}
-      {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowAdd(false)} style={{
-              position: 'absolute', top: 16, right: 16,
-              background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)',
-            }}><X size={20} /></button>
-
-            <h3 style={{ fontFamily: 'Playfair Display', fontSize: 22, marginBottom: 24 }}>Tulis Surat Cinta</h3>
-
-            <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* ── Add / Edit modal ── */}
+      {modalMode && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-box" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <button onClick={closeModal} style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}><X size={20} /></button>
+            <h3 style={{ fontFamily: 'Playfair Display', fontSize: 22, marginBottom: 22 }}>
+              {modalMode === 'add' ? 'Tulis Surat Cinta' : 'Edit Surat'}
+            </h3>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label>Dari</label>
                 <input value={form.from} onChange={e => setForm(f => ({ ...f, from: e.target.value }))} placeholder="cth: Aldi" required />
               </div>
               <div>
                 <label>Isi Surat</label>
-                <textarea rows={7} value={form.content}
-                  onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                  placeholder="Tuliskan kata-kata terindahmu di sini..."
-                  required
+                <textarea rows={6} value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="Tuliskan kata-kata terindahmu di sini..." required />
+              </div>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Music size={13} /> Lagu (opsional)
+                </label>
+                <YouTubeSearch
+                  value={form.song}
+                  onChange={song => setForm(f => ({ ...f, song }))}
+                  placeholder="Cari lagu di YouTube..."
                 />
               </div>
-              <button type="submit" className="btn-primary" disabled={saving} style={{ justifyContent: 'center' }}>
-                {saving ? 'Menyimpan...' : <><Heart size={15} fill="white" color="white" /> Kirim Surat</>}
+              <button type="submit" className="btn-primary" disabled={saving} style={{ justifyContent: 'center', marginTop: 4 }}>
+                {saving ? 'Menyimpan...' : <><Heart size={14} fill="white" color="white" /> {modalMode === 'add' ? 'Kirim Surat' : 'Simpan Perubahan'}</>}
               </button>
             </form>
           </div>
         </div>
       )}
+
+      {/* Card CSS */}
+      <style>{`
+        .letter-card {
+          background: var(--color-surface);
+          border-radius: 16px;
+          padding: 18px;
+          box-shadow: var(--card-shadow);
+          border: 1px solid var(--color-border);
+          cursor: pointer;
+          position: relative;
+          transform: translateZ(0);
+          transition: transform 0.18s ease;
+        }
+        .letter-card:hover { transform: translateY(-4px); }
+
+        /* Card khusus yang punya lagu — beri sedikit ruang ekstra di atas */
+        .letter-card--with-song { padding-top: 14px; }
+
+        /* Toolbar Edit/Hapus di atas embed lagu — hover-reveal di desktop */
+        .letter-card__toolbar {
+          display: flex;
+          justify-content: flex-end;
+          gap: 6px;
+          margin-bottom: 8px;
+          opacity: 0;
+          transition: opacity 0.15s ease;
+        }
+        .letter-card:hover .letter-card__toolbar { opacity: 1; }
+
+        /* Gaya absolute lama — dipakai HANYA untuk card tanpa lagu */
+        .letter-card__actions {
+          position: absolute; top: 12px; right: 12px;
+          display: flex; gap: 4px;
+          opacity: 0; transition: opacity 0.15s;
+          z-index: 2;
+        }
+        .letter-card:hover .letter-card__actions { opacity: 1; }
+
+        /* Tombol ikon (dipakai oleh kedua varian) */
+        .letter-card__action-btn {
+          width: 26px; height: 26px; border-radius: 6px;
+          border: none; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+        }
+        .letter-card__action-btn:hover { transform: translateY(-1px); }
+        .letter-card__action-btn--edit { background: var(--color-surface2); color: var(--color-primary); }
+        .letter-card__action-btn--edit:hover { background: var(--color-primary); color: #fff; }
+        .letter-card__action-btn--del  { background: var(--color-surface2); color: #e05c5c; }
+        .letter-card__action-btn--del:hover  { background: #e05c5c; color: #fff; }
+
+        @media (max-width: 480px) {
+          .letter-card__actions,
+          .letter-card__toolbar { opacity: 1; }
+        }
+
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      `}</style>
     </div>
   );
 }

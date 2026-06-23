@@ -100,9 +100,11 @@ export const getLoveLetters = async () => {
   return snap.docs.map(serialize);
 };
 
-export const addLoveLetter = async ({ from, content }) => {
+export const addLoveLetter = async ({ from, content, songId = null, songTitle = null, songThumbnail = null, channelTitle = null }) => {
   return addDoc(collection(db, 'loveLetters'), {
-    from, content, createdAt: serverTimestamp(),
+    from, content,
+    songId, songTitle, songThumbnail, channelTitle,
+    createdAt: serverTimestamp(),
   });
 };
 
@@ -117,6 +119,17 @@ export const saveEmail = async (email) => {
 export const updateMoment = async (id, { title, description, date, icon }) => {
   return updateDoc(doc(db, 'moments', id), {
     title, description, date, icon,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+// ── UPDATE LOVE LETTER ────────────────────────────────────
+export const updateLoveLetter = async (id, { from, content, songId, songTitle, songThumbnail }) => {
+  return updateDoc(doc(db, 'loveLetters', id), {
+    from, content,
+    songId: songId || null,
+    songTitle: songTitle || null,
+    songThumbnail: songThumbnail || null,
     updatedAt: serverTimestamp(),
   });
 };

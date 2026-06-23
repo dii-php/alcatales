@@ -10,6 +10,7 @@ import OurStory from './pages/OurStory';
 import Gallery from './pages/Gallery';
 import Timeline from './pages/Timeline';
 import LoveLetter from './pages/LoveLetter';
+import LetterView from './pages/LetterView';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
               <Route path="/gallery" element={<Gallery />} />
               <Route path="/timeline" element={<Timeline />} />
               <Route path="/love-letter" element={<LoveLetter />} />
+              <Route path="/love-letter/:id" element={<LetterView />} />
             </Routes>
           </main>
           <Footer />
