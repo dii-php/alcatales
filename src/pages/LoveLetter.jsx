@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Heart, Plus, Trash2, X, Pencil, ExternalLink, Music, Youtube } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getLoveLetters, addLoveLetter, deleteLoveLetter, updateLoveLetter, PAGE_SIZE } from '../utils/dataService';
+import { getLoveLetters, addLoveLetter, deleteLoveLetter, updateLoveLetter, PAGE_SIZE, sendNotification } from '../utils/dataService';
 import Pagination from '../components/Pagination';
 import YouTubeSearch from '../components/YouTubeSearch';
 
@@ -137,7 +137,12 @@ export default function LoveLetter() {
     try {
       if (modalMode === 'add') {
         await addLoveLetter(payload);
+        const newLetter = await addLoveLetter(payload);
         setPage(1);
+        // Send notification (non-blocking)
+        const preview = payload.content?.substring(0, 80) || '';
+        // We refetch to get the real id — notification sent after fetch below
+        sendNotification('letter', { from: payload.from, preview, id: '__pending__' });
       } else {
         await updateLoveLetter(editTarget.id, payload);
         // update local state too so modal reflects change immediately
@@ -197,80 +202,91 @@ export default function LoveLetter() {
 
             {/* Cards grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
-              {pagedLetters.map(letter => {
-                const hasSong = !!letter.songId;
-                return (
-                  <div
-                    key={letter.id}
-                    className={`letter-card ${hasSong ? 'letter-card--with-song' : ''}`}
-                    onClick={() => setOpen(letter)}
-                  >
-                    {/* Admin actions — toolbar di atas embed lagu (hover-reveal, icon-only) */}
-                    {isAdmin && hasSong && (
-                      <div className="letter-card__toolbar" onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={e => { e.stopPropagation(); openEdit(letter); }}
-                          className="letter-card__action-btn letter-card__action-btn--edit"
-                          title="Edit"
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); handleDelete(letter.id); }}
-                          className="letter-card__action-btn letter-card__action-btn--del"
-                          title="Hapus"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    )}
+              {pagedLetters.map(letter => (
+                <div key={letter.id} className="letter-card" onClick={() => setOpen(letter)}>
 
-                    {/* Admin actions — gaya absolute lama untuk card tanpa lagu */}
-                    {isAdmin && !hasSong && (
+                  {/* If has song: admin buttons sit INSIDE the song strip row */}
+                  {letter.songId ? (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '9px 11px',
+                      background: 'var(--color-surface2)',
+                      borderRadius: 10, marginBottom: 12,
+                      border: '1px solid var(--color-border)',
+                    }}>
+                      {/* Thumbnail */}
+                      {letter.songThumbnail
+                        ? <img src={letter.songThumbnail} alt={letter.songTitle}
+                            style={{ width: 40, height: 30, borderRadius: 5, objectFit: 'cover', flexShrink: 0 }} />
+                        : <div style={{ width: 40, height: 30, borderRadius: 5, background: 'var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Music size={13} color="var(--color-text-muted)" />
+                          </div>
+                      }
+                      {/* Song info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{letter.songTitle}</p>
+                        {letter.channelTitle && <p style={{ fontSize: 10, color: 'var(--color-text-muted)', margin: 0 }}>{letter.channelTitle}</p>}
+                      </div>
+                      {/* YouTube icon */}
+                      <Youtube size={13} color="#ff0000" style={{ flexShrink: 0 }} />
+                      {/* Admin buttons — inline, never overlap */}
+                      {isAdmin && (
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 4 }}>
+                          <button onClick={e => { e.stopPropagation(); openEdit(letter); }} title="Edit"
+                            className="letter-card__action-btn letter-card__action-btn--edit">
+                            <Pencil size={11} />
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); handleDelete(letter.id); }} title="Hapus"
+                            className="letter-card__action-btn letter-card__action-btn--del">
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* No song: keep absolute buttons as before */
+                    isAdmin && (
                       <div className="letter-card__actions">
-                        <button onClick={e => { e.stopPropagation(); openEdit(letter); }} title="Edit" className="letter-card__action-btn letter-card__action-btn--edit">
+                        <button onClick={e => { e.stopPropagation(); openEdit(letter); }} title="Edit"
+                          className="letter-card__action-btn letter-card__action-btn--edit">
                           <Pencil size={12} />
                         </button>
-                        <button onClick={e => { e.stopPropagation(); handleDelete(letter.id); }} title="Hapus" className="letter-card__action-btn letter-card__action-btn--del">
+                        <button onClick={e => { e.stopPropagation(); handleDelete(letter.id); }} title="Hapus"
+                          className="letter-card__action-btn letter-card__action-btn--del">
                           <Trash2 size={12} />
                         </button>
                       </div>
-                    )}
+                    )
+                  )}
 
-                    {/* Song thumbnail strip (if has song) */}
-                    {hasSong && (
-                      <SongCard songId={letter.songId} songTitle={letter.songTitle} songThumbnail={letter.songThumbnail} channelTitle={letter.channelTitle} compact />
-                    )}
-
-                    {/* From */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                      <Heart size={15} fill="var(--color-primary)" color="var(--color-primary)" />
-                      <span style={{ fontFamily: 'Dancing Script', fontSize: 20, color: 'var(--color-primary)' }}>Dari {letter.from}</span>
-                    </div>
-
-                    {/* Date */}
-                    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 10, opacity: 0.7, fontStyle: 'italic' }}>
-                      {formatDate(letter.createdAt)}
-                    </p>
-
-                    {/* Content preview */}
-                    <p style={{ fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: 12 }}>
-                      {letter.content}
-                    </p>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', opacity: 0.5 }}>Klik untuk membaca →</span>
-                      <button
-                        onClick={e => { e.stopPropagation(); navigate(`/love-letter/${letter.id}`); }}
-                        title="Buka halaman penuh"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', padding: 4, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
-                      >
-                        <ExternalLink size={12} /> Buka
-                      </button>
-                    </div>
+                  {/* From */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                    <Heart size={15} fill="var(--color-primary)" color="var(--color-primary)" />
+                    <span style={{ fontFamily: 'Dancing Script', fontSize: 20, color: 'var(--color-primary)' }}>Dari {letter.from}</span>
                   </div>
-                );
-              })}
+
+                  {/* Date */}
+                  <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 10, opacity: 0.7, fontStyle: 'italic' }}>
+                    {formatDate(letter.createdAt)}
+                  </p>
+
+                  {/* Content preview */}
+                  <p style={{ fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: 12 }}>
+                    {letter.content}
+                  </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)', opacity: 0.5 }}>Klik untuk membaca →</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); navigate(`/love-letter/${letter.id}`); }}
+                      title="Buka halaman penuh"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', padding: 4, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+                    >
+                      <ExternalLink size={12} /> Buka
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
@@ -310,7 +326,7 @@ export default function LoveLetter() {
             {/* Letter body */}
             <div style={{
               background: 'var(--color-surface2)', borderRadius: 12, padding: 18,
-              fontFamily: 'Patrick Hand', fontStyle: 'italic',
+              fontFamily: 'Playfair Display', fontStyle: 'italic',
               lineHeight: 1.8, fontSize: 15, color: 'var(--color-text)',
               whiteSpace: 'pre-wrap', maxHeight: '40vh', overflowY: 'auto',
             }}>
@@ -369,22 +385,6 @@ export default function LoveLetter() {
           transition: transform 0.18s ease;
         }
         .letter-card:hover { transform: translateY(-4px); }
-
-        /* Card khusus yang punya lagu — beri sedikit ruang ekstra di atas */
-        .letter-card--with-song { padding-top: 14px; }
-
-        /* Toolbar Edit/Hapus di atas embed lagu — hover-reveal di desktop */
-        .letter-card__toolbar {
-          display: flex;
-          justify-content: flex-end;
-          gap: 6px;
-          margin-bottom: 8px;
-          opacity: 0;
-          transition: opacity 0.15s ease;
-        }
-        .letter-card:hover .letter-card__toolbar { opacity: 1; }
-
-        /* Gaya absolute lama — dipakai HANYA untuk card tanpa lagu */
         .letter-card__actions {
           position: absolute; top: 12px; right: 12px;
           display: flex; gap: 4px;
@@ -392,25 +392,16 @@ export default function LoveLetter() {
           z-index: 2;
         }
         .letter-card:hover .letter-card__actions { opacity: 1; }
-
-        /* Tombol ikon (dipakai oleh kedua varian) */
         .letter-card__action-btn {
           width: 26px; height: 26px; border-radius: 6px;
           border: none; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
         }
-        .letter-card__action-btn:hover { transform: translateY(-1px); }
         .letter-card__action-btn--edit { background: var(--color-surface2); color: var(--color-primary); }
-        .letter-card__action-btn--edit:hover { background: var(--color-primary); color: #fff; }
         .letter-card__action-btn--del  { background: var(--color-surface2); color: #e05c5c; }
-        .letter-card__action-btn--del:hover  { background: #e05c5c; color: #fff; }
-
         @media (max-width: 480px) {
-          .letter-card__actions,
-          .letter-card__toolbar { opacity: 1; }
+          .letter-card__actions { opacity: 1; }
         }
-
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
       `}</style>
     </div>

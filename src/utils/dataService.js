@@ -133,3 +133,49 @@ export const updateLoveLetter = async (id, { from, content, songId, songTitle, s
     updatedAt: serverTimestamp(),
   });
 };
+
+// ── TODAY'S SONG PLAYLIST ─────────────────────────────────
+export const getSongPlaylist = async () => {
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'song_playlist'));
+    return snap.exists() ? snap.data() : { videos: [], active: false, currentIndex: 0 };
+  } catch (e) { return { videos: [], active: false, currentIndex: 0 }; }
+};
+
+export const setSongPlaylist = async (data) => {
+  return setDoc(doc(db, 'settings', 'song_playlist'), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+// ── SUBSCRIBERS (client-side save with token) ────────────
+export const subscribeEmail = async (email) => {
+  // Call serverless function
+  const res = await fetch('/api/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Subscribe failed');
+  return data;
+};
+
+// ── SEND NOTIFICATION (internal, called after admin actions) ─
+export const sendNotification = async (type, data) => {
+  const key = process.env.REACT_APP_INTERNAL_NOTIFY_KEY;
+  if (!key) return; // skip if not configured
+  try {
+    await fetch('/api/notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-key': key,
+      },
+      body: JSON.stringify({ type, data }),
+    });
+  } catch (e) {
+    console.warn('Notification send failed (non-critical):', e.message);
+  }
+};

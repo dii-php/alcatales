@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { Heart, ChevronDown, ArrowRight, Instagram, Gift, Calendar, Star } from 'lucide-react';
 import Countdown from '../components/Countdown';
 import PhotoSettingButton from '../components/PhotoSettingButton';
-import { getGallery, getMoments, getSetting } from '../utils/dataService';
+import { getGallery, getMoments, getSetting, subscribeEmail } from '../utils/dataService';
+import TodaySong from '../components/TodaySong';
 import { useAuth } from '../context/AuthContext';
 
 const ICON_MAP = { heart: Heart, gift: Gift, star: Star, calendar: Calendar };
@@ -23,14 +24,44 @@ export default function Home() {
   const [moments, setMoments] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
   const [polaroidUrl, setPolaroidUrl] = useState(null);
+  const [subEmail, setSubEmail] = useState('');
+  const [subStatus, setSubStatus] = useState(''); // '' | 'loading' | 'done' | 'exists' | 'error'
   const [lovePic1, setLovePic1] = useState(null);
   const [lovePic2, setLovePic2] = useState(null);
 
-  useEffect(() => {
-    const fn = () => setIsMobile(window.innerWidth <= 640);
-    window.addEventListener('resize', fn);
-    return () => window.removeEventListener('resize', fn);
-  }, []);
+  const handleSubscribe = async (e) => {
+  e.preventDefault();
+
+  if (!subEmail) return;
+
+  setSubStatus('loading');
+
+  try {
+    const result = await subscribeEmail(subEmail);
+
+    setSubStatus(
+      result.message === 'already_subscribed'
+        ? 'exists'
+        : 'done'
+    );
+
+    if (result.message !== 'already_subscribed') {
+      setSubEmail('');
+    }
+  } catch (err) {
+    setSubStatus('error');
+  }
+};
+
+useEffect(() => {
+  const fn = () => setIsMobile(window.innerWidth <= 640);
+
+  window.addEventListener('resize', fn);
+
+  return () => {
+    window.removeEventListener('resize', fn);
+  };
+}, []);
 
   useEffect(() => {
     getGallery().then(d => setGalleryPhotos(d.slice(0, 4))).catch(() => {});
@@ -113,6 +144,77 @@ export default function Home() {
         <a href="#journey" style={{ position: 'absolute', bottom: 32, color: 'rgba(255,255,255,0.7)', animation: 'floatHeart 2s ease-in-out infinite', cursor: 'pointer' }}>
           <ChevronDown size={28} />
         </a>
+      </section>
+
+      {/* ── GET NOTIFICATION ──────────────────────────── */}
+      <section className="section" style={{ paddingTop: isMobile ? 32 : 48 }}>
+        <div className="container">
+          <div style={{
+            background: 'var(--color-surface)',
+            borderRadius: 20,
+            padding: isMobile ? '24px 20px' : '32px 36px',
+            boxShadow: 'var(--card-shadow)',
+            border: '1px solid var(--color-border)',
+            display: 'flex', alignItems: 'center', gap: isMobile ? 16 : 32,
+            flexWrap: 'wrap',
+          }}>
+            {/* Icon + text */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 200 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
+                background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Heart size={22} fill="white" color="white" />
+              </div>
+              <div>
+                <h3 style={{ fontFamily: 'Playfair Display', fontSize: isMobile ? 16 : 18, margin: '0 0 3px' }}>
+                  Get Notification?
+                </h3>
+                <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.5 }}>
+                  Dapatkan notifikasi email saat ada momen atau surat cinta baru.
+                </p>
+              </div>
+            </div>
+
+            {/* Form */}
+            {subStatus === 'done' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-primary)', fontSize: 14, fontWeight: 500 }}>
+                <Heart size={16} fill="var(--color-primary)" color="var(--color-primary)" />
+                Berhasil! Kamu akan mendapat notifikasi.
+              </div>
+            ) : subStatus === 'exists' ? (
+              <p style={{ fontSize: 13, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                Email ini sudah terdaftar ✓
+              </p>
+            ) : (
+              <form onSubmit={handleSubscribe} style={{ display: 'flex', gap: 8, flex: 1, minWidth: isMobile ? '100%' : 260 }}>
+                <input
+                  type="email" value={subEmail} onChange={e => { setSubEmail(e.target.value); setSubStatus(''); }}
+                  placeholder="email@kamu.com"
+                  required
+                  style={{ flex: 1 }}
+                  disabled={subStatus === 'loading'}
+                />
+                <button type="submit" className="btn-primary" disabled={subStatus === 'loading'} style={{ padding: '10px 20px', fontSize: 13, whiteSpace: 'nowrap' }}>
+                  {subStatus === 'loading' ? '...' : <><Heart size={13} fill="white" color="white" /> Subscribe</>}
+                </button>
+              </form>
+            )}
+            {subStatus === 'error' && (
+              <p style={{ fontSize: 12, color: '#e05c5c', width: '100%', margin: '-8px 0 0' }}>
+                Gagal subscribe. Pastikan server sudah deploy. Coba lagi.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── TODAY'S SONG ─────────────────────────────────── */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <TodaySong />
+        </div>
       </section>
 
       {/* ── OUR JOURNEY ─────────────────────────────────── */}
@@ -268,7 +370,7 @@ export default function Home() {
               <Instagram size={22} color="white" />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kami di Instagram</p>
+              <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kita di Instagram</p>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>@alcatales.haven</p>
             </div>
             <ArrowRight size={18} color="white" style={{ flexShrink: 0 }} />

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Heart, Plus, Trash2, X, Calendar, Gift, Star, Coffee, Film, MapPin, Images, Pencil } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getMoments, addMoment, deleteMoment, updateMoment, getGalleryByMoment } from '../utils/dataService';
+import { getMoments, addMoment, deleteMoment, updateMoment, getGalleryByMoment, sendNotification } from '../utils/dataService';
 import MomentGallery from '../components/MomentGallery';
 
 const ICONS = { heart: Heart, gift: Gift, star: Star, coffee: Coffee, film: Film, map: MapPin, calendar: Calendar };
@@ -74,6 +74,8 @@ export default function Timeline() {
     try {
       if (modalMode === 'add') {
         await addMoment(form);
+        // Send email notification to subscribers (non-blocking)
+        sendNotification('timeline', { title: form.title, description: form.description, date: form.date });
       } else {
         await updateMoment(editTarget.id, form);
       }
