@@ -6,6 +6,12 @@ import { randomBytes } from 'crypto';
 
 function initAdmin() {
   if (getApps().length) return;
+  console.log('KEY LENGTH:', process.env.FIREBASE_PRIVATE_KEY?.length);
+
+  const key = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  console.log('START:', key?.slice(0, 30));
+  console.log('END:', key?.slice(-30));
   initializeApp({
     credential: cert({
       projectId:    process.env.FIREBASE_PROJECT_ID,
