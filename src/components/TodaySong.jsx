@@ -170,8 +170,8 @@ export default function TodaySong() {
 
   return (
     <>
-      {/* Max-width wrapper so it doesn't go full-width on large screens */}
-      <div style={{ maxWidth: 560, margin: '0 auto' }}>
+      {/* Centered card — constrained width on desktop, proper top margin */}
+      <div style={{ maxWidth: 520, margin: '0 auto', marginTop: 36 }}>
         <div style={{
           background: 'var(--color-surface)',
           borderRadius: 20,

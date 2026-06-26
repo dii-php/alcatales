@@ -159,9 +159,10 @@ export default function Home() {
         <div className="container">
           <div style={{
             background: 'var(--color-surface)', borderRadius: 20,
-            padding: isMobile ? '22px 18px' : '28px 32px',
+            padding: isMobile ? '22px 18px' : '24px 28px',
             boxShadow: 'var(--card-shadow)', border: '1px solid var(--color-border)',
-            display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 28, flexWrap: 'wrap',
+            display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 24, flexWrap: 'wrap',
+            maxWidth: 760, margin: '0 auto',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 200 }}>
               <div style={{
@@ -228,13 +229,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── TODAY'S SONG — no section wrapper so no gap when hidden ── */}
-      <div className="container" style={{ paddingBottom: 0 }}>
+      {/* ── TODAY'S SONG ── 
+           TodaySong returns null when inactive → no gap.
+           When active → it renders with its own top margin. ──*/}
+      <div className="container" style={{ paddingTop: 0, paddingBottom: 0 }}>
         <TodaySong />
       </div>
 
       {/* ── OUR JOURNEY ─────────────────────────────────── */}
-      <section id="journey" className="section" style={{ paddingTop: 0 }}>
+      <section id="journey" className="section" style={{ paddingTop: isMobile ? 24 : 36 }}>
         <div className="container">
           <div className="section-card">
             <div style={{ display: 'flex', gap: 32, alignItems: 'center', flexWrap: 'wrap' }}>

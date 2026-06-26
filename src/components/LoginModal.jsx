@@ -5,11 +5,11 @@ import { useAuth } from '../context/AuthContext';
 
 export default function LoginModal() {
   const { login, showLoginModal, setShowLoginModal } = useAuth();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername]   = useState('');
+  const [password, setPassword]   = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError]         = useState('');
+  const [loading, setLoading]     = useState(false);
 
   if (!showLoginModal) return null;
 
@@ -17,16 +17,16 @@ export default function LoginModal() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    await new Promise(r => setTimeout(r, 300));
-    const ok = login(username, password, rememberMe);
+    // login now fetches Firestore fresh — no artificial delay needed
+    const result = await login(username, password, rememberMe);
     setLoading(false);
-    if (ok) {
+    if (result.success) {
       setShowLoginModal(false);
       setUsername('');
       setPassword('');
       setRememberMe(false);
     } else {
-      setError('Username atau password salah.');
+      setError(result.message || 'Username atau password salah.');
     }
   };
 
@@ -55,11 +55,24 @@ export default function LoginModal() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <label>Username</label>
-            <input value={username} onChange={e => setUsername(e.target.value)} placeholder="alca" required />
+            <input
+              value={username}
+              onChange={e => { setUsername(e.target.value); setError(''); }}
+              placeholder="username"
+              required
+              autoComplete="username"
+            />
           </div>
           <div>
             <label>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+            <input
+              type="password"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError(''); }}
+              placeholder="••••••••"
+              required
+              autoComplete="current-password"
+            />
           </div>
 
           {/* Remember Me */}
@@ -87,7 +100,11 @@ export default function LoginModal() {
             <span onClick={() => setRememberMe(v => !v)}>Ingat saya di perangkat ini</span>
           </label>
 
-          {error && <p style={{ color: '#e05c5c', fontSize: 13, textAlign: 'center', margin: 0 }}>{error}</p>}
+          {error && (
+            <p style={{ color: '#e05c5c', fontSize: 13, textAlign: 'center', margin: 0, lineHeight: 1.4 }}>
+              {error}
+            </p>
+          )}
 
           <button type="submit" className="btn-primary" disabled={loading} style={{ justifyContent: 'center', marginTop: 4 }}>
             {loading ? 'Memproses...' : 'Masuk'}
