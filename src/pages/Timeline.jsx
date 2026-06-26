@@ -19,7 +19,7 @@ const ICON_OPTIONS = [
 const EMPTY_FORM = { title: '', description: '', date: '', icon: 'heart' };
 
 export default function Timeline() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, adminUsername } = useAuth();
   const [moments, setMoments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,7 +75,7 @@ export default function Timeline() {
       if (modalMode === 'add') {
         await addMoment(form);
         // Send email notification to subscribers (non-blocking)
-        sendNotification('timeline', { title: form.title, description: form.description, date: form.date });
+        sendNotification('timeline', { title: form.title, description: form.description, date: form.date }, adminUsername);
       } else {
         await updateMoment(editTarget.id, form);
       }

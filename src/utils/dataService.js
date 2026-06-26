@@ -150,12 +150,11 @@ export const setSongPlaylist = async (data) => {
 };
 
 // ── SUBSCRIBERS (client-side save with token) ────────────
-export const subscribeEmail = async (email) => {
-  // Call serverless function
+export const subscribeEmail = async (email, isAdminSubscriber = false, adminUsername = '') => {
   const res = await fetch('/api/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, isAdminSubscriber, adminUsername }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Subscribe failed');
@@ -163,9 +162,9 @@ export const subscribeEmail = async (email) => {
 };
 
 // ── SEND NOTIFICATION (internal, called after admin actions) ─
-export const sendNotification = async (type, data) => {
+export const sendNotification = async (type, data, senderAdminUsername = '') => {
   const key = process.env.REACT_APP_INTERNAL_NOTIFY_KEY;
-  if (!key) return; // skip if not configured
+  if (!key) return;
   try {
     await fetch('/api/notify', {
       method: 'POST',
@@ -173,7 +172,7 @@ export const sendNotification = async (type, data) => {
         'Content-Type': 'application/json',
         'x-internal-key': key,
       },
-      body: JSON.stringify({ type, data }),
+      body: JSON.stringify({ type, data, senderAdminUsername }),
     });
   } catch (e) {
     console.warn('Notification send failed (non-critical):', e.message);

@@ -82,7 +82,7 @@ function SongCard({ songId, songTitle, songThumbnail, channelTitle, compact = fa
 
 // ── Main component ────────────────────────────────────────
 export default function LoveLetter() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, adminUsername } = useAuth();
   const navigate    = useNavigate();
   const [letters, setLetters]   = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -142,7 +142,7 @@ export default function LoveLetter() {
         // Send notification (non-blocking)
         const preview = payload.content?.substring(0, 80) || '';
         // We refetch to get the real id — notification sent after fetch below
-        sendNotification('letter', { from: payload.from, preview, id: '__pending__' });
+        sendNotification('letter', { from: payload.from, preview, id: '__pending__' }, adminUsername);
       } else {
         await updateLoveLetter(editTarget.id, payload);
         // update local state too so modal reflects change immediately

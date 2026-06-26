@@ -1,16 +1,17 @@
 // src/pages/Home.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, ChevronDown, ArrowRight, Instagram, Gift, Calendar, Star } from 'lucide-react';
 import Countdown from '../components/Countdown';
 import PhotoSettingButton from '../components/PhotoSettingButton';
-import { getGallery, getMoments, getSetting, subscribeEmail } from '../utils/dataService';
 import TodaySong from '../components/TodaySong';
+import { getGallery, getMoments, getSetting, subscribeEmail } from '../utils/dataService';
+import { db } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 
 const ICON_MAP = { heart: Heart, gift: Gift, star: Star, calendar: Calendar };
 
-// 4 hearts, positions work on both mobile and desktop
 const HEARTS = [
   { top: '14%', left: '6%',   size: 18, delay: '0s' },
   { top: '28%', right: '8%',  size: 24, delay: '0.6s' },
@@ -19,49 +20,22 @@ const HEARTS = [
 ];
 
 export default function Home() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, adminUsername } = useAuth();
   const [galleryPhotos, setGalleryPhotos] = useState([]);
-  const [moments, setMoments] = useState([]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
-  const [polaroidUrl, setPolaroidUrl] = useState(null);
-  const [subEmail, setSubEmail] = useState('');
-  const [subStatus, setSubStatus] = useState(''); // '' | 'loading' | 'done' | 'exists' | 'error'
-  const [lovePic1, setLovePic1] = useState(null);
-  const [lovePic2, setLovePic2] = useState(null);
+  const [moments, setMoments]             = useState([]);
+  const [isMobile, setIsMobile]           = useState(window.innerWidth <= 640);
+  const [polaroidUrl, setPolaroidUrl]     = useState(null);
+  const [lovePic1, setLovePic1]           = useState(null);
+  const [lovePic2, setLovePic2]           = useState(null);
+  const [subEmail, setSubEmail]           = useState('');
+  const [subStatus, setSubStatus]         = useState(''); // '' | 'loading' | 'done' | 'exists' | 'error'
+  const [savedSubEmail, setSavedSubEmail] = useState(''); // email that was subscribed, from localStorage
 
-  const handleSubscribe = async (e) => {
-  e.preventDefault();
-
-  if (!subEmail) return;
-
-  setSubStatus('loading');
-
-  try {
-    const result = await subscribeEmail(subEmail);
-
-    setSubStatus(
-      result.message === 'already_subscribed'
-        ? 'exists'
-        : 'done'
-    );
-
-    if (result.message !== 'already_subscribed') {
-      setSubEmail('');
-    }
-  } catch (err) {
-    setSubStatus('error');
-  }
-};
-
-useEffect(() => {
-  const fn = () => setIsMobile(window.innerWidth <= 640);
-
-  window.addEventListener('resize', fn);
-
-  return () => {
-    window.removeEventListener('resize', fn);
-  };
-}, []);
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, []);
 
   useEffect(() => {
     getGallery().then(d => setGalleryPhotos(d.slice(0, 4))).catch(() => {});
@@ -70,6 +44,45 @@ useEffect(() => {
     getSetting('loveletter_photo1').then(d => d?.imageUrl && setLovePic1(d.imageUrl)).catch(() => {});
     getSetting('loveletter_photo2').then(d => d?.imageUrl && setLovePic2(d.imageUrl)).catch(() => {});
   }, []);
+
+  // Restore saved email from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('alca_sub_email');
+    if (saved) setSavedSubEmail(saved);
+  }, []);
+
+  // When admin logs in, check if their stored sub email is subscribed
+  useEffect(() => {
+    const saved = localStorage.getItem('alca_sub_email');
+    if (saved) setSavedSubEmail(saved);
+  }, [isAdmin]);
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    if (!subEmail) return;
+    setSubStatus('loading');
+    try {
+      const result = await subscribeEmail(subEmail, isAdmin, adminUsername);
+      const isDone = result.message !== 'already_subscribed';
+      setSubStatus(isDone ? 'done' : 'exists');
+      // Save email to localStorage so we can show it after refresh/logout
+      localStorage.setItem('alca_sub_email', subEmail.toLowerCase());
+      setSavedSubEmail(subEmail.toLowerCase());
+      if (isDone) setSubEmail('');
+    } catch (err) {
+      setSubStatus('error');
+    }
+  };
+
+  const handleUnsubscribe = () => {
+    // We don't have the token client-side — direct to a simple message
+    // The real unsubscribe happens via email link
+    if (window.confirm('Buka email yang kamu daftarkan untuk menemukan tombol unsubscribe, atau hapus data lokal saja?')) {
+      localStorage.removeItem('alca_sub_email');
+      setSavedSubEmail('');
+      setSubStatus('');
+    }
+  };
 
   const PolaroidInner = ({ height }) => (
     polaroidUrl
@@ -89,18 +102,13 @@ useEffect(() => {
       }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.06) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 40%)' }} />
 
-        {/* 4 floating hearts — shown on ALL screen sizes */}
         {HEARTS.map((h, i) => (
-          <div key={i} className="float-heart" style={{
-            position: 'absolute', opacity: 0.45,
-            top: h.top, left: h.left, right: h.right, bottom: h.bottom,
-            animationDelay: h.delay,
-          }}>
+          <div key={i} className="float-heart" style={{ position: 'absolute', opacity: 0.45, top: h.top, left: h.left, right: h.right, bottom: h.bottom, animationDelay: h.delay }}>
             <Heart size={h.size} fill="white" color="white" />
           </div>
         ))}
 
-        {/* Desktop polaroid — absolute top-right */}
+        {/* Desktop polaroid */}
         {!isMobile && (
           <div style={{ position: 'absolute', top: 96, right: 72, zIndex: 2 }}>
             <div style={{ background: 'white', padding: '10px 10px 28px', borderRadius: 4, transform: 'rotate(6deg)', boxShadow: '0 8px 30px rgba(0,0,0,0.25)', width: 160 }}>
@@ -114,7 +122,7 @@ useEffect(() => {
         )}
 
         <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 24px', maxWidth: 700, width: '100%' }}>
-          {/* Mobile polaroid — inline above title */}
+          {/* Mobile polaroid */}
           {isMobile && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14, gap: 7 }}>
               <div style={{ background: 'white', padding: '8px 8px 22px', borderRadius: 4, transform: 'rotate(3deg)', boxShadow: '0 6px 20px rgba(0,0,0,0.25)', width: 100 }}>
@@ -141,84 +149,92 @@ useEffect(() => {
           </div>
         </div>
 
-        <a href="#journey" style={{ position: 'absolute', bottom: 32, color: 'rgba(255,255,255,0.7)', animation: 'floatHeart 2s ease-in-out infinite', cursor: 'pointer' }}>
+        <a href="#notify" style={{ position: 'absolute', bottom: 32, color: 'rgba(255,255,255,0.7)', animation: 'floatHeart 2s ease-in-out infinite', cursor: 'pointer' }}>
           <ChevronDown size={28} />
         </a>
       </section>
 
-      {/* ── GET NOTIFICATION ──────────────────────────── */}
-      <section className="section" style={{ paddingTop: isMobile ? 32 : 48 }}>
+      {/* ── GET NOTIFICATION ──────────────────────────────── */}
+      <section id="notify" className="section" style={{ paddingTop: isMobile ? 32 : 48 }}>
         <div className="container">
           <div style={{
-            background: 'var(--color-surface)',
-            borderRadius: 20,
-            padding: isMobile ? '24px 20px' : '32px 36px',
-            boxShadow: 'var(--card-shadow)',
-            border: '1px solid var(--color-border)',
-            display: 'flex', alignItems: 'center', gap: isMobile ? 16 : 32,
-            flexWrap: 'wrap',
+            background: 'var(--color-surface)', borderRadius: 20,
+            padding: isMobile ? '22px 18px' : '28px 32px',
+            boxShadow: 'var(--card-shadow)', border: '1px solid var(--color-border)',
+            display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 28, flexWrap: 'wrap',
           }}>
-            {/* Icon + text */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 200 }}>
               <div style={{
-                width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
-                background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))',
+                width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
+                background: 'var(--gradient-btn)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <Heart size={22} fill="white" color="white" />
+                <Heart size={20} fill="white" color="white" />
               </div>
               <div>
-                <h3 style={{ fontFamily: 'Playfair Display', fontSize: isMobile ? 16 : 18, margin: '0 0 3px' }}>
-                  Get Notification?
-                </h3>
+                <h3 style={{ fontFamily: 'Playfair Display', fontSize: isMobile ? 16 : 18, margin: '0 0 3px' }}>Get Notification?</h3>
                 <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.5 }}>
-                  Dapatkan notifikasi email saat ada momen atau surat cinta baru.
+                  Notifikasi email saat ada momen atau surat cinta baru.
                 </p>
               </div>
             </div>
 
-            {/* Form */}
-            {subStatus === 'done' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-primary)', fontSize: 14, fontWeight: 500 }}>
-                <Heart size={16} fill="var(--color-primary)" color="var(--color-primary)" />
-                Berhasil! Kamu akan mendapat notifikasi.
+            {/* Already subscribed — show email + unsubscribe */}
+            {savedSubEmail ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1, minWidth: isMobile ? '100%' : 240 }}>
+                <div style={{
+                  flex: 1, background: 'var(--color-surface2)', borderRadius: 10,
+                  padding: '8px 14px', border: '1px solid var(--color-border)',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                }}>
+                  <Heart size={13} fill="var(--color-primary)" color="var(--color-primary)" />
+                  <span style={{ fontSize: 13, color: 'var(--color-text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {savedSubEmail}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 500, flexShrink: 0 }}>✓ Subscribed</span>
+                </div>
+                <button onClick={handleUnsubscribe} style={{
+                  background: 'none', border: '1px solid var(--color-border)',
+                  borderRadius: 20, padding: '7px 14px', fontSize: 12,
+                  color: 'var(--color-text-muted)', cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>
+                  Unsubscribe
+                </button>
               </div>
-            ) : subStatus === 'exists' ? (
-              <p style={{ fontSize: 13, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-                Email ini sudah terdaftar ✓
-              </p>
+            ) : subStatus === 'done' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-primary)', fontSize: 14, fontWeight: 500 }}>
+                <Heart size={15} fill="var(--color-primary)" color="var(--color-primary)" /> Berhasil! Kamu akan mendapat notifikasi.
+              </div>
             ) : (
-              <form onSubmit={handleSubscribe} style={{ display: 'flex', gap: 8, flex: 1, minWidth: isMobile ? '100%' : 260 }}>
+              <form onSubmit={handleSubscribe} style={{ display: 'flex', gap: 8, flex: 1, minWidth: isMobile ? '100%' : 240 }}>
                 <input
-                  type="email" value={subEmail} onChange={e => { setSubEmail(e.target.value); setSubStatus(''); }}
+                  type="email" value={subEmail}
+                  onChange={e => { setSubEmail(e.target.value); setSubStatus(''); }}
                   placeholder="email@kamu.com"
-                  required
+                  required disabled={subStatus === 'loading'}
                   style={{ flex: 1 }}
-                  disabled={subStatus === 'loading'}
                 />
-                <button type="submit" className="btn-primary" disabled={subStatus === 'loading'} style={{ padding: '10px 20px', fontSize: 13, whiteSpace: 'nowrap' }}>
+                <button type="submit" className="btn-primary" disabled={subStatus === 'loading'} style={{ padding: '10px 18px', fontSize: 13, whiteSpace: 'nowrap' }}>
                   {subStatus === 'loading' ? '...' : <><Heart size={13} fill="white" color="white" /> Subscribe</>}
                 </button>
               </form>
             )}
-            {subStatus === 'error' && (
-              <p style={{ fontSize: 12, color: '#e05c5c', width: '100%', margin: '-8px 0 0' }}>
-                Gagal subscribe. Pastikan server sudah deploy. Coba lagi.
+            {subStatus === 'error' && !savedSubEmail && (
+              <p style={{ fontSize: 12, color: '#e05c5c', width: '100%', margin: '-4px 0 0' }}>
+                Gagal subscribe. Pastikan server sudah di-deploy ke Vercel.
               </p>
             )}
           </div>
         </div>
       </section>
 
-      {/* ── TODAY'S SONG ─────────────────────────────────── */}
-      <section className="section" style={{ paddingTop: 0 }}>
-        <div className="container">
-          <TodaySong />
-        </div>
-      </section>
+      {/* ── TODAY'S SONG — no section wrapper so no gap when hidden ── */}
+      <div className="container" style={{ paddingBottom: 0 }}>
+        <TodaySong />
+      </div>
 
       {/* ── OUR JOURNEY ─────────────────────────────────── */}
-      <section id="journey" className="section">
+      <section id="journey" className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <div className="section-card">
             <div style={{ display: 'flex', gap: 32, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -282,7 +298,7 @@ useEffect(() => {
                       <img src={photo.imageUrl} alt={photo.caption} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     </div>
                   ))
-                : [1, 2, 3, 4].map(i => (
+                : [1,2,3,4].map(i => (
                     <div key={i} style={{ aspectRatio: '1', background: 'var(--color-surface2)', borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1.5px dashed var(--color-border)', gap: 6, padding: 12 }}>
                       <Heart size={16} color="var(--color-primary-light)" />
                       <p style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center' }}>Belum ada foto</p>
@@ -298,22 +314,13 @@ useEffect(() => {
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <div className="section-card" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 20 : 48, flexWrap: 'nowrap' }}>
-
-            {/* Polaroid stack — desktop: full; mobile: compact single */}
             {!isMobile ? (
-              /* Desktop: two overlapping polaroids */
               <div style={{ position: 'relative', width: 200, height: 210, flexShrink: 0 }}>
                 <div style={{ position: 'absolute', top: 20, left: 10, background: 'white', padding: '8px 8px 24px', transform: 'rotate(-8deg)', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', borderRadius: 4, width: 120 }}>
-                  {lovePic1
-                    ? <img src={lovePic1} alt="love1" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 2, display: 'block' }} />
-                    : <div style={{ width: '100%', height: 90, background: 'linear-gradient(135deg,#e8857a,#b5607a)', borderRadius: 2 }} />
-                  }
+                  {lovePic1 ? <img src={lovePic1} alt="" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 2, display: 'block' }} /> : <div style={{ width: '100%', height: 90, background: 'linear-gradient(135deg,#e8857a,#b5607a)', borderRadius: 2 }} />}
                 </div>
                 <div style={{ position: 'absolute', top: 0, left: 40, background: 'white', padding: '8px 8px 24px', transform: 'rotate(5deg)', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', borderRadius: 4, width: 120 }}>
-                  {lovePic2
-                    ? <img src={lovePic2} alt="love2" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 2, display: 'block' }} />
-                    : <div style={{ width: '100%', height: 90, background: 'linear-gradient(135deg,#c96a5e,#d4607a)', borderRadius: 2 }} />
-                  }
+                  {lovePic2 ? <img src={lovePic2} alt="" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 2, display: 'block' }} /> : <div style={{ width: '100%', height: 90, background: 'linear-gradient(135deg,#c96a5e,#d4607a)', borderRadius: 2 }} />}
                 </div>
                 <div style={{ position: 'absolute', bottom: 0, right: 0, width: 44, height: 44, borderRadius: '50%', background: 'var(--gradient-btn)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
                   <Heart size={20} fill="white" color="white" />
@@ -326,20 +333,13 @@ useEffect(() => {
                 )}
               </div>
             ) : (
-              /* Mobile: single small polaroid to the left of text */
-              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ flexShrink: 0 }}>
                 <div style={{ background: 'white', padding: '6px 6px 18px', borderRadius: 4, transform: 'rotate(-4deg)', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', width: 80 }}>
-                  {lovePic1
-                    ? <img src={lovePic1} alt="love" style={{ width: '100%', height: 68, objectFit: 'cover', borderRadius: 2, display: 'block' }} />
-                    : <div style={{ width: '100%', height: 68, background: 'linear-gradient(135deg,#e8857a,#b5607a)', borderRadius: 2 }} />
-                  }
+                  {lovePic1 ? <img src={lovePic1} alt="" style={{ width: '100%', height: 68, objectFit: 'cover', borderRadius: 2, display: 'block' }} /> : <div style={{ width: '100%', height: 68, background: 'linear-gradient(135deg,#e8857a,#b5607a)', borderRadius: 2 }} />}
                 </div>
-                {/* No admin buttons on mobile for love letter photos — too cluttered */}
               </div>
             )}
-
-            {/* Text */}
-            <div style={{ flex: 1, paddingTop: isAdmin && !isMobile ? 0 : 0 }}>
+            <div style={{ flex: 1 }}>
               <h2 style={{ fontFamily: 'Playfair Display', fontSize: isMobile ? 20 : 28, marginBottom: 10 }}>
                 Love Letter <Heart size={16} color="var(--color-primary)" style={{ display: 'inline', verticalAlign: 'middle' }} />
               </h2>

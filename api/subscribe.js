@@ -1,24 +1,15 @@
-// api/subscribe.js — Vercel Serverless Function
-// POST { email } → save subscriber to Firestore with unique token
+// api/subscribe.js
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { randomBytes } from 'crypto';
 
 function initAdmin() {
   if (getApps().length) return;
-  console.log('KEY LENGTH:', process.env.FIREBASE_PRIVATE_KEY?.length);
-
-  const key = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  console.log('START:', key?.slice(0, 30));
-  console.log('END:', key?.slice(-30));
-  initializeApp({
-    credential: cert({
-      projectId:    process.env.FIREBASE_PROJECT_ID,
-      clientEmail:  process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:   process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
+  initializeApp({ credential: cert({
+    projectId:   process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  })});
 }
 
 export default async function handler(req, res) {
@@ -28,7 +19,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { email } = req.body || {};
+  const { email, isAdminSubscriber = false, adminUsername = '' } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Email tidak valid' });
   }
@@ -36,8 +27,6 @@ export default async function handler(req, res) {
   try {
     initAdmin();
     const db = getFirestore();
-
-    // Check if already subscribed
     const existing = await db.collection('subscribers')
       .where('email', '==', email.toLowerCase()).limit(1).get();
 
@@ -50,6 +39,8 @@ export default async function handler(req, res) {
       email: email.toLowerCase(),
       token,
       active: true,
+      isAdminSubscriber,   // flag: was user logged in as admin when subscribing?
+      adminUsername: adminUsername.toLowerCase(), // which admin username
       createdAt: new Date(),
     });
 
