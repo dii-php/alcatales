@@ -45,17 +45,31 @@ export default function Home() {
     getSetting('loveletter_photo2').then(d => d?.imageUrl && setLovePic2(d.imageUrl)).catch(() => {});
   }, []);
 
-  // Restore saved email from localStorage on mount
+  // On mount: restore saved email AND verify still active via API
   useEffect(() => {
     const saved = localStorage.getItem('alca_sub_email');
-    if (saved) setSavedSubEmail(saved);
+    if (!saved) return;
+    // Verify still active (handles unsubscribe-via-email case)
+    fetch('/api/check-subscriber', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: saved }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.active) {
+          setSavedSubEmail(saved);
+        } else {
+          // Was unsubscribed via email link — clear local storage
+          localStorage.removeItem('alca_sub_email');
+          setSavedSubEmail('');
+        }
+      })
+      .catch(() => {
+        // API not available (local dev without serverless) — show from localStorage anyway
+        setSavedSubEmail(saved);
+      });
   }, []);
-
-  // When admin logs in, check if their stored sub email is subscribed
-  useEffect(() => {
-    const saved = localStorage.getItem('alca_sub_email');
-    if (saved) setSavedSubEmail(saved);
-  }, [isAdmin]);
 
   const handleSubscribe = async (e) => {
     e.preventDefault();
@@ -74,14 +88,21 @@ export default function Home() {
     }
   };
 
-  const handleUnsubscribe = () => {
-    // We don't have the token client-side — direct to a simple message
-    // The real unsubscribe happens via email link
-    if (window.confirm('Buka email yang kamu daftarkan untuk menemukan tombol unsubscribe, atau hapus data lokal saja?')) {
-      localStorage.removeItem('alca_sub_email');
-      setSavedSubEmail('');
-      setSubStatus('');
-    }
+  const handleUnsubscribe = async () => {
+    if (!window.confirm(`Berhenti menerima notifikasi untuk ${savedSubEmail}?`)) return;
+    setSubStatus('loading');
+    try {
+      // Call API to mark inactive in Firestore
+      await fetch('/api/unsubscribe-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: savedSubEmail }),
+      });
+    } catch (e) { /* non-critical */ }
+    // Always clear locally
+    localStorage.removeItem('alca_sub_email');
+    setSavedSubEmail('');
+    setSubStatus('');
   };
 
   const PolaroidInner = ({ height }) => (
@@ -155,7 +176,7 @@ export default function Home() {
       </section>
 
       {/* ── GET NOTIFICATION ──────────────────────────────── */}
-      <section id="notify" className="section" style={{ paddingTop: isMobile ? 32 : 48 }}>
+      <section id="notify" className="section" style={{ paddingTop: isMobile ? 32 : 48, paddingBottom: isMobile ? 20 : 24 }}>
         <div className="container">
           <div style={{
             background: 'var(--color-surface)', borderRadius: 20,
@@ -182,24 +203,30 @@ export default function Home() {
 
             {/* Already subscribed — show email + unsubscribe */}
             {savedSubEmail ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1, minWidth: isMobile ? '100%' : 240 }}>
+              <div style={{ flex: 1, minWidth: isMobile ? '100%' : 240 }}>
                 <div style={{
-                  flex: 1, background: 'var(--color-surface2)', borderRadius: 10,
-                  padding: '8px 14px', border: '1px solid var(--color-border)',
-                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: 'var(--color-surface2)', borderRadius: 10,
+                  padding: '10px 14px', border: '1px solid var(--color-border)',
+                  marginBottom: 8,
                 }}>
-                  <Heart size={13} fill="var(--color-primary)" color="var(--color-primary)" />
-                  <span style={{ fontSize: 13, color: 'var(--color-text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <Heart size={12} fill="var(--color-primary)" color="var(--color-primary)" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 600 }}>✓ Subscribed</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: 'var(--color-text)', fontWeight: 500, margin: 0, wordBreak: 'break-all' }}>
                     {savedSubEmail}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 500, flexShrink: 0 }}>✓ Subscribed</span>
+                  </p>
                 </div>
-                <button onClick={handleUnsubscribe} style={{
-                  background: 'none', border: '1px solid var(--color-border)',
-                  borderRadius: 20, padding: '7px 14px', fontSize: 12,
-                  color: 'var(--color-text-muted)', cursor: 'pointer', whiteSpace: 'nowrap',
-                }}>
-                  Unsubscribe
+                <button
+                  onClick={handleUnsubscribe}
+                  disabled={subStatus === 'loading'}
+                  style={{
+                    background: 'none', border: '1px solid var(--color-border)',
+                    borderRadius: 20, padding: '6px 14px', fontSize: 12,
+                    color: 'var(--color-text-muted)', cursor: 'pointer', whiteSpace: 'nowrap',
+                    width: '100%',
+                  }}>
+                  {subStatus === 'loading' ? 'Memproses...' : 'Berhenti Berlangganan'}
                 </button>
               </div>
             ) : subStatus === 'done' ? (
@@ -229,15 +256,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── TODAY'S SONG ── 
-           TodaySong returns null when inactive → no gap.
-           When active → it renders with its own top margin. ──*/}
-      <div className="container" style={{ paddingTop: 0, paddingBottom: 0 }}>
-        <TodaySong />
-      </div>
+      {/* ── TODAY'S SONG — no wrapper, TodaySong renders null when inactive so zero gap ── */}
+      <TodaySong />
 
       {/* ── OUR JOURNEY ─────────────────────────────────── */}
-      <section id="journey" className="section" style={{ paddingTop: isMobile ? 24 : 36 }}>
+      <section id="journey" className="section" style={{ paddingTop: isMobile ? 24 : 28 }}>
         <div className="container">
           <div className="section-card">
             <div style={{ display: 'flex', gap: 32, alignItems: 'center', flexWrap: 'wrap' }}>

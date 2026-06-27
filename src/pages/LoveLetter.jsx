@@ -136,16 +136,15 @@ export default function LoveLetter() {
     };
     try {
       if (modalMode === 'add') {
-        await addLoveLetter(payload);
-        const newLetter = await addLoveLetter(payload);
+        // Add once, get the real doc reference back for notification URL
+        const docRef = await addLoveLetter(payload);
+        const newId = docRef.id;
         setPage(1);
-        // Send notification (non-blocking)
+        // Send notification with real ID so email link works
         const preview = payload.content?.substring(0, 80) || '';
-        // We refetch to get the real id — notification sent after fetch below
-        sendNotification('letter', { from: payload.from, preview, id: '__pending__' }, adminUsername);
+        sendNotification('letter', { from: payload.from, preview, id: newId }, adminUsername);
       } else {
         await updateLoveLetter(editTarget.id, payload);
-        // update local state too so modal reflects change immediately
         setLetters(prev => prev.map(l => l.id === editTarget.id ? { ...l, ...payload } : l));
         if (open?.id === editTarget.id) setOpen(prev => ({ ...prev, ...payload }));
       }
