@@ -136,11 +136,9 @@ export default function LoveLetter() {
     };
     try {
       if (modalMode === 'add') {
-        // Add once, get the real doc reference back for notification URL
         const docRef = await addLoveLetter(payload);
         const newId = docRef.id;
         setPage(1);
-        // Send notification with real ID so email link works
         const preview = payload.content?.substring(0, 80) || '';
         sendNotification('letter', { from: payload.from, preview, id: newId }, adminUsername);
       } else {

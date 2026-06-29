@@ -15,15 +15,12 @@ const SITE_URL   = 'https://alcatales.web.id';
 const FROM_EMAIL = 'no-reply@mail.alcatales.web.id';
 const FROM_NAME  = 'ALCA ♡ Aldi & Caca';
 
-// Imgur image embedded directly as <img> tag (works in most email clients)
 const IMGUR_IMG = `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
   <tr><td align="center">
     <img src="https://i.imgur.com/sU2SlZm.jpeg"
-      alt="ALCA - Aldi & Caca"
-      width="480"
-      style="max-width:100%;border-radius:16px;display:block;"
-    />
+      alt="ALCA - Aldi & Caca" width="480"
+      style="max-width:100%;border-radius:16px;display:block;" />
   </td></tr>
 </table>`;
 
@@ -36,28 +33,21 @@ function emailTemplate({ headline, body, btnText, btnUrl, unsubUrl }) {
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6f3;padding:40px 16px;">
 <tr><td align="center">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-
-  <!-- Header -->
   <tr><td style="background:linear-gradient(135deg,#c96a5e,#e8857a,#b5607a);border-radius:20px 20px 0 0;padding:40px 32px;text-align:center;">
     <p style="margin:0 0 6px;color:rgba(255,255,255,0.8);font-size:13px;letter-spacing:.1em;text-transform:uppercase;">ALCA ♡</p>
     <h1 style="margin:0;font-family:Georgia,serif;font-size:32px;color:white;font-style:italic;">Aldi &amp; Caca</h1>
     <p style="margin:8px 0 0;color:rgba(255,255,255,.75);font-size:14px;">Together since 09 April 2026</p>
   </td></tr>
-
-  <!-- Body -->
   <tr><td style="background:white;padding:36px 32px;">
     <h2 style="font-family:Georgia,serif;font-size:22px;color:#3d2b2b;text-align:center;margin:0 0 20px;">${headline}</h2>
     ${body}
     ${IMGUR_IMG}
-    <!-- CTA -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
       <tr><td align="center">
         <a href="${btnUrl}" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#e8857a,#d4607a);color:white;text-decoration:none;border-radius:50px;font-size:15px;font-weight:600;">${btnText} →</a>
       </td></tr>
     </table>
   </td></tr>
-
-  <!-- Footer -->
   <tr><td style="background:#fff5f5;border-radius:0 0 20px 20px;padding:24px 32px;text-align:center;">
     <p style="margin:0 0 8px;color:#c9a09a;font-size:12px;line-height:1.6;">
       Kamu menerima email ini karena berlangganan notifikasi dari ALCA.
@@ -65,7 +55,6 @@ function emailTemplate({ headline, body, btnText, btnUrl, unsubUrl }) {
     <a href="${unsubUrl}" style="color:#e8857a;font-size:12px;">Berhenti berlangganan</a>
     <p style="margin:12px 0 0;color:#d4b0b0;font-size:11px;">Made with ♡ for our forever story.</p>
   </td></tr>
-
 </table>
 </td></tr>
 </table>
@@ -124,33 +113,43 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (req.headers['x-internal-key'] !== process.env.INTERNAL_NOTIFY_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  // Auth: only enforce if INTERNAL_NOTIFY_KEY is configured
+  const configuredKey = process.env.INTERNAL_NOTIFY_KEY;
+  if (configuredKey) {
+    if (req.headers['x-internal-key'] !== configuredKey) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
   }
 
   const { type, data, senderAdminUsername = '' } = req.body || {};
   if (!type || !data) return res.status(400).json({ error: 'Missing type or data' });
+
+  const RESEND_KEY = process.env.RESEND_API_KEY;
+  if (!RESEND_KEY) {
+    console.error('[notify] RESEND_API_KEY not set');
+    return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
+  }
 
   try {
     initAdmin();
     const db = getFirestore();
 
     const snap = await db.collection('subscribers').where('active', '==', true).get();
-    if (snap.empty) return res.status(200).json({ sent: 0 });
-
-    const RESEND_KEY = process.env.RESEND_API_KEY;
-    if (!RESEND_KEY) return res.status(500).json({ error: 'RESEND_API_KEY not set' });
+    console.log(`[notify] ${snap.size} active subscribers`);
+    if (snap.empty) return res.status(200).json({ sent: 0, message: 'No subscribers' });
 
     let sent = 0;
     const errors = [];
+    const skipped = [];
 
     for (const docSnap of snap.docs) {
       const { email, token, isAdminSubscriber, adminUsername } = docSnap.data();
-      if (!email || !token) continue;
+      if (!email || !token) { skipped.push('missing data'); continue; }
 
-      // Skip: if subscriber is an admin AND is the same admin who created the content
-      if (isAdminSubscriber && adminUsername &&
+      // Skip the admin who triggered this notification
+      if (isAdminSubscriber && adminUsername && senderAdminUsername &&
           adminUsername.toLowerCase() === senderAdminUsername.toLowerCase()) {
+        skipped.push(`self: ${email}`);
         continue;
       }
 
@@ -163,18 +162,24 @@ export default async function handler(req, res) {
             'Authorization': `Bearer ${RESEND_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ from: `${FROM_NAME} <${FROM_EMAIL}>`, to: [email], subject, html }),
+          body: JSON.stringify({
+            from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            to: [email], subject, html,
+          }),
         });
-        if (r.ok) sent++;
-        else errors.push({ email, status: r.status });
+        const result = await r.json();
+        if (r.ok) { sent++; console.log(`[notify] ✓ ${email}`); }
+        else { errors.push({ email, status: r.status, detail: result }); console.error(`[notify] ✗ ${email}:`, result); }
       } catch (e) {
         errors.push({ email, error: e.message });
+        console.error(`[notify] exception ${email}:`, e.message);
       }
     }
 
-    return res.status(200).json({ sent, errors });
+    console.log(`[notify] sent=${sent} skipped=${skipped.length} errors=${errors.length}`);
+    return res.status(200).json({ sent, skipped, errors });
   } catch (err) {
-    console.error('notify error:', err);
-    return res.status(500).json({ error: 'Server error' });
+    console.error('[notify] fatal:', err);
+    return res.status(500).json({ error: err.message });
   }
 }

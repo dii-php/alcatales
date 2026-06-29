@@ -163,18 +163,19 @@ export const subscribeEmail = async (email, isAdminSubscriber = false, adminUser
 
 // ── SEND NOTIFICATION (internal, called after admin actions) ─
 export const sendNotification = async (type, data, senderAdminUsername = '') => {
-  const key = process.env.REACT_APP_INTERNAL_NOTIFY_KEY;
-  if (!key) return;
   try {
-    await fetch('/api/notify', {
+    const key = process.env.REACT_APP_INTERNAL_NOTIFY_KEY;
+    const headers = { 'Content-Type': 'application/json' };
+    if (key) headers['x-internal-key'] = key;
+
+    const res = await fetch('/api/notify', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-internal-key': key,
-      },
+      headers,
       body: JSON.stringify({ type, data, senderAdminUsername }),
     });
+    const result = await res.json();
+    console.log('[sendNotification] result:', result);
   } catch (e) {
-    console.warn('Notification send failed (non-critical):', e.message);
+    console.warn('[sendNotification] failed:', e.message);
   }
 };

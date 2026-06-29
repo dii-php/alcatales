@@ -1,20 +1,18 @@
 // src/pages/Home.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, ChevronDown, ArrowRight, Instagram, Gift, Calendar, Star } from 'lucide-react';
 import Countdown from '../components/Countdown';
 import PhotoSettingButton from '../components/PhotoSettingButton';
 import TodaySong from '../components/TodaySong';
 import { getGallery, getMoments, getSetting, subscribeEmail } from '../utils/dataService';
-import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 
 const ICON_MAP = { heart: Heart, gift: Gift, star: Star, calendar: Calendar };
 
 const HEARTS = [
-  { top: '14%', left: '6%',   size: 18, delay: '0s' },
-  { top: '28%', right: '8%',  size: 24, delay: '0.6s' },
+  { top: '14%', left: '6%',    size: 18, delay: '0s'   },
+  { top: '28%', right: '8%',   size: 24, delay: '0.6s' },
   { bottom: '22%', left: '12%', size: 14, delay: '1.2s' },
   { bottom: '35%', right: '14%', size: 20, delay: '1.8s' },
 ];
@@ -28,8 +26,8 @@ export default function Home() {
   const [lovePic1, setLovePic1]           = useState(null);
   const [lovePic2, setLovePic2]           = useState(null);
   const [subEmail, setSubEmail]           = useState('');
-  const [subStatus, setSubStatus]         = useState(''); // '' | 'loading' | 'done' | 'exists' | 'error'
-  const [savedSubEmail, setSavedSubEmail] = useState(''); // email that was subscribed, from localStorage
+  const [subStatus, setSubStatus]         = useState('');
+  const [savedSubEmail, setSavedSubEmail] = useState('');
 
   useEffect(() => {
     const fn = () => setIsMobile(window.innerWidth <= 640);
@@ -45,29 +43,30 @@ export default function Home() {
     getSetting('loveletter_photo2').then(d => d?.imageUrl && setLovePic2(d.imageUrl)).catch(() => {});
   }, []);
 
-  // On mount: restore saved email AND verify still active via API
+  // On mount: show saved email immediately, then verify in background
   useEffect(() => {
     const saved = localStorage.getItem('alca_sub_email');
     if (!saved) return;
-    // Verify still active (handles unsubscribe-via-email case)
+
+    // Show immediately — no flash/delay
+    setSavedSubEmail(saved);
+
+    // Background verify — only clear if API explicitly returns active: false
     fetch('/api/check-subscriber', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: saved }),
     })
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data.active) {
-          setSavedSubEmail(saved);
-        } else {
-          // Was unsubscribed via email link — clear local storage
+        // Only clear if server explicitly says inactive (not null, not error)
+        if (data && data.active === false) {
           localStorage.removeItem('alca_sub_email');
           setSavedSubEmail('');
         }
       })
       .catch(() => {
-        // API not available (local dev without serverless) — show from localStorage anyway
-        setSavedSubEmail(saved);
+        // Network error — keep showing from localStorage
       });
   }, []);
 
@@ -77,12 +76,11 @@ export default function Home() {
     setSubStatus('loading');
     try {
       const result = await subscribeEmail(subEmail, isAdmin, adminUsername);
-      const isDone = result.message !== 'already_subscribed';
-      setSubStatus(isDone ? 'done' : 'exists');
-      // Save email to localStorage so we can show it after refresh/logout
-      localStorage.setItem('alca_sub_email', subEmail.toLowerCase());
-      setSavedSubEmail(subEmail.toLowerCase());
-      if (isDone) setSubEmail('');
+      const emailLower = subEmail.toLowerCase();
+      localStorage.setItem('alca_sub_email', emailLower);
+      setSavedSubEmail(emailLower);
+      setSubStatus(result.message === 'already_subscribed' ? 'exists' : 'done');
+      setSubEmail('');
     } catch (err) {
       setSubStatus('error');
     }
@@ -92,14 +90,12 @@ export default function Home() {
     if (!window.confirm(`Berhenti menerima notifikasi untuk ${savedSubEmail}?`)) return;
     setSubStatus('loading');
     try {
-      // Call API to mark inactive in Firestore
       await fetch('/api/unsubscribe-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: savedSubEmail }),
       });
     } catch (e) { /* non-critical */ }
-    // Always clear locally
     localStorage.removeItem('alca_sub_email');
     setSavedSubEmail('');
     setSubStatus('');
@@ -143,7 +139,6 @@ export default function Home() {
         )}
 
         <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 24px', maxWidth: 700, width: '100%' }}>
-          {/* Mobile polaroid */}
           {isMobile && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14, gap: 7 }}>
               <div style={{ background: 'white', padding: '8px 8px 22px', borderRadius: 4, transform: 'rotate(3deg)', boxShadow: '0 6px 20px rgba(0,0,0,0.25)', width: 100 }}>
@@ -185,12 +180,9 @@ export default function Home() {
             display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 24, flexWrap: 'wrap',
             maxWidth: 760, margin: '0 auto',
           }}>
+            {/* Icon + text */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 200 }}>
-              <div style={{
-                width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
-                background: 'var(--gradient-btn)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
+              <div style={{ width: 46, height: 46, borderRadius: '50%', flexShrink: 0, background: 'var(--gradient-btn)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Heart size={20} fill="white" color="white" />
               </div>
               <div>
@@ -201,14 +193,10 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Already subscribed — show email + unsubscribe */}
+            {/* Subscribe / subscribed state */}
             {savedSubEmail ? (
-              <div style={{ flex: 1, minWidth: isMobile ? '100%' : 240 }}>
-                <div style={{
-                  background: 'var(--color-surface2)', borderRadius: 10,
-                  padding: '10px 14px', border: '1px solid var(--color-border)',
-                  marginBottom: 8,
-                }}>
+              <div style={{ flex: 1, minWidth: isMobile ? '100%' : 220 }}>
+                <div style={{ background: 'var(--color-surface2)', borderRadius: 10, padding: '10px 14px', border: '1px solid var(--color-border)', marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                     <Heart size={12} fill="var(--color-primary)" color="var(--color-primary)" style={{ flexShrink: 0 }} />
                     <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 600 }}>✓ Subscribed</span>
@@ -220,12 +208,7 @@ export default function Home() {
                 <button
                   onClick={handleUnsubscribe}
                   disabled={subStatus === 'loading'}
-                  style={{
-                    background: 'none', border: '1px solid var(--color-border)',
-                    borderRadius: 20, padding: '6px 14px', fontSize: 12,
-                    color: 'var(--color-text-muted)', cursor: 'pointer', whiteSpace: 'nowrap',
-                    width: '100%',
-                  }}>
+                  style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: 20, padding: '6px 14px', fontSize: 12, color: 'var(--color-text-muted)', cursor: 'pointer', width: '100%' }}>
                   {subStatus === 'loading' ? 'Memproses...' : 'Berhenti Berlangganan'}
                 </button>
               </div>
@@ -256,7 +239,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── TODAY'S SONG — no wrapper, TodaySong renders null when inactive so zero gap ── */}
+      {/* ── TODAY'S SONG ─────────────────────────────────── */}
       <TodaySong />
 
       {/* ── OUR JOURNEY ─────────────────────────────────── */}
@@ -380,7 +363,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── INSTAGRAM LINK ───────────────────────────────── */}
+      {/* ── INSTAGRAM ───────────────────────────────────── */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <a href="https://instagram.com/alcatales.haven" target="_blank" rel="noopener noreferrer" style={{

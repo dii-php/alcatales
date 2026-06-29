@@ -1,4 +1,4 @@
-// api/unsubscribe-email.js — unsubscribe by email (called from website button)
+// api/unsubscribe-email.js
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 

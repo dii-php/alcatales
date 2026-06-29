@@ -1,4 +1,4 @@
-// api/check-subscriber.js — check if email is still active subscriber
+// api/check-subscriber.js
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -30,6 +30,8 @@ export default async function handler(req, res) {
       .limit(1).get();
     return res.status(200).json({ active: !snap.empty });
   } catch (e) {
-    return res.status(200).json({ active: true }); // assume active on error
+    console.error('check-subscriber error:', e);
+    // On error, return null so frontend keeps showing from localStorage
+    return res.status(200).json({ active: null });
   }
 }
