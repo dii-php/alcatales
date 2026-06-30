@@ -13,9 +13,9 @@ function initAdmin() {
 
 const SITE_URL   = 'https://alcatales.web.id';
 const FROM_EMAIL = 'notification@mail.alcatales.web.id';
-const FROM_NAME  = 'ALCA ♡ Aldi & Caca';
+const FROM_NAME  = '♡ alcatales';
 
-const IMGUR_IMG = `
+const IMG = `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
   <tr><td align="center">
     <img src="../src/assets/embed-email.png"
@@ -41,6 +41,7 @@ function emailTemplate({ headline, body, btnText, btnUrl, unsubUrl }) {
   <tr><td style="background:white;padding:36px 32px;">
     <h2 style="font-family:Georgia,serif;font-size:22px;color:#3d2b2b;text-align:center;margin:0 0 20px;">${headline}</h2>
     ${body}
+    ${IMG}
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
       <tr><td align="center">
         <a href="${btnUrl}" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#e8857a,#d4607a);color:white;text-decoration:none;border-radius:50px;font-size:15px;font-weight:600;">${btnText} →</a>
@@ -87,7 +88,7 @@ function buildEmail({ type, data, token }) {
 
   const { id, from, preview } = data;
   return {
-    subject: `💌 Surat cinta baru dari ${from} — ALCA`,
+    subject: `💌 Surat dari ${from} — ALCA`,
     html: emailTemplate({
       headline: '💌 Ada Surat Cinta Baru!',
       body: `
