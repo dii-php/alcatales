@@ -18,7 +18,7 @@ const FROM_NAME  = 'ALCA ♡ Aldi & Caca';
 const IMGUR_IMG = `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
   <tr><td align="center">
-    <img src="https://i.imgur.com/sU2SlZm.jpeg"
+    <img src="../src/assets/embed-email.png"
       alt="ALCA - Aldi & Caca" width="480"
       style="max-width:100%;border-radius:16px;display:block;" />
   </td></tr>
