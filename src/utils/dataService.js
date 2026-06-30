@@ -6,7 +6,9 @@ import {
   setDoc, getDoc, updateDoc
 } from 'firebase/firestore';
 
-// Convert Firestore Timestamp to ISO string safely
+const PAGE_SIZE = 10;
+export { PAGE_SIZE };
+
 const toISO = (ts) => {
   if (!ts) return null;
   if (typeof ts.toDate === 'function') return ts.toDate().toISOString();
@@ -14,7 +16,6 @@ const toISO = (ts) => {
   return null;
 };
 
-// Serialize a Firestore doc — converts all Timestamp fields to ISO strings
 const serialize = (d) => {
   const data = d.data();
   return {
@@ -25,10 +26,7 @@ const serialize = (d) => {
   };
 };
 
-export const PAGE_SIZE = 10;
-
-// ── GALLERY ───────────────────────────────────────────────
-// Returns ALL gallery items (used internally for pagination/filtering on client)
+// ── GALLERY ──────────────────────────────────────────────
 export const getGallery = async () => {
   const q = query(collection(db, 'gallery'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
@@ -37,11 +35,7 @@ export const getGallery = async () => {
 
 export const getGalleryByMoment = async (momentId) => {
   try {
-    const q = query(
-      collection(db, 'gallery'),
-      where('momentId', '==', momentId),
-      orderBy('createdAt', 'desc')
-    );
+    const q = query(collection(db, 'gallery'), where('momentId', '==', momentId), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
     return snap.docs.map(serialize);
   } catch (e) {
@@ -50,14 +44,13 @@ export const getGalleryByMoment = async (momentId) => {
   }
 };
 
-export const addGalleryItem = async ({ imageUrl, caption, momentId = null, cloudinaryId = null }) => {
+export const addGalleryItem = async ({ imageUrl, caption, momentId = null }) => {
   return addDoc(collection(db, 'gallery'), {
-    imageUrl, caption: caption || '', momentId, cloudinaryId,
+    imageUrl, caption: caption || '', momentId,
     createdAt: serverTimestamp(),
   });
 };
 
-// Assign / change which moment a gallery photo belongs to
 export const updateGalleryItemMoment = async (id, momentId) => {
   return updateDoc(doc(db, 'gallery', id), { momentId: momentId || null });
 };
@@ -76,7 +69,7 @@ export const setSetting = async (key, data) => {
   return setDoc(doc(db, 'settings', key), { ...data, updatedAt: serverTimestamp() });
 };
 
-// ── TIMELINE / MOMENTS ────────────────────────────────────
+// ── MOMENTS ──────────────────────────────────────────────
 export const getMoments = async () => {
   const q = query(collection(db, 'moments'), orderBy('date', 'asc'));
   const snap = await getDocs(q);
@@ -90,10 +83,16 @@ export const addMoment = async ({ title, description, date, icon }) => {
   });
 };
 
+export const updateMoment = async (id, { title, description, date, icon }) => {
+  return updateDoc(doc(db, 'moments', id), {
+    title, description, date, icon,
+    updatedAt: serverTimestamp(),
+  });
+};
+
 export const deleteMoment = async (id) => deleteDoc(doc(db, 'moments', id));
 
 // ── LOVE LETTERS ─────────────────────────────────────────
-// Returns ALL letters (client paginates)
 export const getLoveLetters = async () => {
   const q = query(collection(db, 'loveLetters'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
@@ -102,39 +101,25 @@ export const getLoveLetters = async () => {
 
 export const addLoveLetter = async ({ from, content, songId = null, songTitle = null, songThumbnail = null, channelTitle = null }) => {
   return addDoc(collection(db, 'loveLetters'), {
-    from, content,
-    songId, songTitle, songThumbnail, channelTitle,
+    from, content, songId, songTitle, songThumbnail, channelTitle,
     createdAt: serverTimestamp(),
   });
 };
 
-export const deleteLoveLetter = async (id) => deleteDoc(doc(db, 'loveLetters', id));
-
-// ── EMAIL SUBSCRIBERS ────────────────────────────────────
-export const saveEmail = async (email) => {
-  return addDoc(collection(db, 'subscribers'), { email, createdAt: serverTimestamp() });
-};
-
-// ── UPDATE MOMENT ─────────────────────────────────────────
-export const updateMoment = async (id, { title, description, date, icon }) => {
-  return updateDoc(doc(db, 'moments', id), {
-    title, description, date, icon,
-    updatedAt: serverTimestamp(),
-  });
-};
-
-// ── UPDATE LOVE LETTER ────────────────────────────────────
-export const updateLoveLetter = async (id, { from, content, songId, songTitle, songThumbnail }) => {
+export const updateLoveLetter = async (id, { from, content, songId, songTitle, songThumbnail, channelTitle }) => {
   return updateDoc(doc(db, 'loveLetters', id), {
     from, content,
     songId: songId || null,
     songTitle: songTitle || null,
     songThumbnail: songThumbnail || null,
+    channelTitle: channelTitle || null,
     updatedAt: serverTimestamp(),
   });
 };
 
-// ── TODAY'S SONG PLAYLIST ─────────────────────────────────
+export const deleteLoveLetter = async (id) => deleteDoc(doc(db, 'loveLetters', id));
+
+// ── SONG PLAYLIST ────────────────────────────────────────
 export const getSongPlaylist = async () => {
   try {
     const snap = await getDoc(doc(db, 'settings', 'song_playlist'));
@@ -144,12 +129,11 @@ export const getSongPlaylist = async () => {
 
 export const setSongPlaylist = async (data) => {
   return setDoc(doc(db, 'settings', 'song_playlist'), {
-    ...data,
-    updatedAt: serverTimestamp(),
+    ...data, updatedAt: serverTimestamp(),
   });
 };
 
-// ── SUBSCRIBERS (client-side save with token) ────────────
+// ── SUBSCRIBERS ──────────────────────────────────────────
 export const subscribeEmail = async (email, isAdminSubscriber = false, adminUsername = '') => {
   const res = await fetch('/api/subscribe', {
     method: 'POST',
@@ -161,21 +145,20 @@ export const subscribeEmail = async (email, isAdminSubscriber = false, adminUser
   return data;
 };
 
-// ── SEND NOTIFICATION (internal, called after admin actions) ─
+// ── NOTIFICATIONS ────────────────────────────────────────
 export const sendNotification = async (type, data, senderAdminUsername = '') => {
   try {
     const key = process.env.REACT_APP_INTERNAL_NOTIFY_KEY;
     const headers = { 'Content-Type': 'application/json' };
     if (key) headers['x-internal-key'] = key;
-
     const res = await fetch('/api/notify', {
       method: 'POST',
       headers,
       body: JSON.stringify({ type, data, senderAdminUsername }),
     });
     const result = await res.json();
-    console.log('[sendNotification] result:', result);
+    console.log('[notify] result:', result);
   } catch (e) {
-    console.warn('[sendNotification] failed:', e.message);
+    console.warn('[notify] failed:', e.message);
   }
 };

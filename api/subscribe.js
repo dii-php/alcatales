@@ -31,6 +31,11 @@ export default async function handler(req, res) {
       .where('email', '==', email.toLowerCase()).limit(1).get();
 
     if (!existing.empty) {
+      // Already subscribed — update admin flags in case they changed
+      await existing.docs[0].ref.update({
+        isAdminSubscriber,
+        adminUsername: adminUsername.toLowerCase(),
+      });
       return res.status(200).json({ message: 'already_subscribed' });
     }
 
@@ -39,8 +44,8 @@ export default async function handler(req, res) {
       email: email.toLowerCase(),
       token,
       active: true,
-      isAdminSubscriber,   // flag: was user logged in as admin when subscribing?
-      adminUsername: adminUsername.toLowerCase(), // which admin username
+      isAdminSubscriber,
+      adminUsername: adminUsername.toLowerCase(),
       createdAt: new Date(),
     });
 

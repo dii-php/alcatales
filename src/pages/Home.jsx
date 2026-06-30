@@ -17,6 +17,8 @@ const HEARTS = [
   { bottom: '35%', right: '14%', size: 20, delay: '1.8s' },
 ];
 
+const GUEST_EMAIL_KEY = 'alca_sub_email';
+
 export default function Home() {
   const { isAdmin, adminUsername } = useAuth();
   const [galleryPhotos, setGalleryPhotos] = useState([]);
@@ -28,6 +30,7 @@ export default function Home() {
   const [subEmail, setSubEmail]           = useState('');
   const [subStatus, setSubStatus]         = useState('');
   const [savedSubEmail, setSavedSubEmail] = useState('');
+  const [subLoaded, setSubLoaded]         = useState(false);
 
   useEffect(() => {
     const fn = () => setIsMobile(window.innerWidth <= 640);
@@ -43,32 +46,38 @@ export default function Home() {
     getSetting('loveletter_photo2').then(d => d?.imageUrl && setLovePic2(d.imageUrl)).catch(() => {});
   }, []);
 
-  // On mount: show saved email immediately, then verify in background
   useEffect(() => {
-    const saved = localStorage.getItem('alca_sub_email');
-    if (!saved) return;
-
-    // Show immediately — no flash/delay
-    setSavedSubEmail(saved);
-
-    // Background verify — only clear if API explicitly returns active: false
-    fetch('/api/check-subscriber', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: saved }),
-    })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        // Only clear if server explicitly says inactive (not null, not error)
-        if (data && data.active === false) {
-          localStorage.removeItem('alca_sub_email');
-          setSavedSubEmail('');
-        }
+    setSubLoaded(false);
+    if (isAdmin && adminUsername) {
+      fetch('/api/my-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminUsername }),
       })
-      .catch(() => {
-        // Network error — keep showing from localStorage
-      });
-  }, []);
+        .then(r => r.ok ? r.json() : { email: null })
+        .then(data => { setSavedSubEmail(data.email || ''); setSubLoaded(true); })
+        .catch(() => { setSavedSubEmail(''); setSubLoaded(true); });
+    } else {
+      const saved = localStorage.getItem(GUEST_EMAIL_KEY);
+      setSavedSubEmail(saved || '');
+      setSubLoaded(true);
+      if (saved) {
+        fetch('/api/check-subscriber', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: saved }),
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data && data.active === false) {
+              localStorage.removeItem(GUEST_EMAIL_KEY);
+              setSavedSubEmail('');
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [isAdmin, adminUsername]);
 
   const handleSubscribe = async (e) => {
     e.preventDefault();
@@ -77,7 +86,7 @@ export default function Home() {
     try {
       const result = await subscribeEmail(subEmail, isAdmin, adminUsername);
       const emailLower = subEmail.toLowerCase();
-      localStorage.setItem('alca_sub_email', emailLower);
+      if (!isAdmin) localStorage.setItem(GUEST_EMAIL_KEY, emailLower);
       setSavedSubEmail(emailLower);
       setSubStatus(result.message === 'already_subscribed' ? 'exists' : 'done');
       setSubEmail('');
@@ -87,7 +96,7 @@ export default function Home() {
   };
 
   const handleUnsubscribe = async () => {
-    if (!window.confirm(`Berhenti menerima notifikasi untuk ${savedSubEmail}?`)) return;
+    if (!window.confirm(`Berhenti menerima notifikasi untuk ${savedSubEmail}? Data akan dihapus permanen.`)) return;
     setSubStatus('loading');
     try {
       await fetch('/api/unsubscribe-email', {
@@ -95,8 +104,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: savedSubEmail }),
       });
-    } catch (e) { /* non-critical */ }
-    localStorage.removeItem('alca_sub_email');
+    } catch (e) {}
+    if (!isAdmin) localStorage.removeItem(GUEST_EMAIL_KEY);
     setSavedSubEmail('');
     setSubStatus('');
   };
@@ -111,21 +120,17 @@ export default function Home() {
 
   return (
     <div>
-      {/* ── HERO ─────────────────────────────────────────── */}
       <section style={{
         minHeight: '100vh', background: 'var(--gradient-hero)',
         position: 'relative', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', overflow: 'hidden', paddingTop: 64,
       }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.06) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 40%)' }} />
-
         {HEARTS.map((h, i) => (
           <div key={i} className="float-heart" style={{ position: 'absolute', opacity: 0.45, top: h.top, left: h.left, right: h.right, bottom: h.bottom, animationDelay: h.delay }}>
             <Heart size={h.size} fill="white" color="white" />
           </div>
         ))}
-
-        {/* Desktop polaroid */}
         {!isMobile && (
           <div style={{ position: 'absolute', top: 96, right: 72, zIndex: 2 }}>
             <div style={{ background: 'white', padding: '10px 10px 28px', borderRadius: 4, transform: 'rotate(6deg)', boxShadow: '0 8px 30px rgba(0,0,0,0.25)', width: 160 }}>
@@ -137,7 +142,6 @@ export default function Home() {
             </div>
           </div>
         )}
-
         <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 24px', maxWidth: 700, width: '100%' }}>
           {isMobile && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14, gap: 7 }}>
@@ -148,29 +152,24 @@ export default function Home() {
               <PhotoSettingButton settingKey="polaroid" label="Ganti Foto" onUpdated={setPolaroidUrl} />
             </div>
           )}
-
           <h1 style={{ fontFamily: 'Dancing Script', fontSize: 'clamp(44px,10vw,88px)', color: 'white', lineHeight: 1.1, marginBottom: 12, textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}>
             Aldi <span style={{ color: 'rgba(255,220,215,1)', fontStyle: 'italic' }}>&</span> Caca
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: isMobile ? 13 : 15, marginBottom: 32, letterSpacing: '0.05em' }}>
             Together since 09 April 2026 · 19:17 GMT+8
           </p>
-
           <Countdown />
-
           <div style={{ marginTop: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'rgba(255,255,255,0.88)', fontSize: isMobile ? 13 : 15, fontStyle: 'italic', flexWrap: 'wrap', padding: '0 8px' }}>
             <Heart size={13} fill="rgba(255,255,255,0.7)" color="rgba(255,255,255,0.7)" style={{ animation: 'pulse 2s infinite', flexShrink: 0 }} />
             <span>Every second with you is my favorite part of life.</span>
             <Heart size={13} fill="rgba(255,255,255,0.7)" color="rgba(255,255,255,0.7)" style={{ animation: 'pulse 2s infinite 0.5s', flexShrink: 0 }} />
           </div>
         </div>
-
         <a href="#notify" style={{ position: 'absolute', bottom: 32, color: 'rgba(255,255,255,0.7)', animation: 'floatHeart 2s ease-in-out infinite', cursor: 'pointer' }}>
           <ChevronDown size={28} />
         </a>
       </section>
 
-      {/* ── GET NOTIFICATION ──────────────────────────────── */}
       <section id="notify" className="section" style={{ paddingTop: isMobile ? 32 : 48, paddingBottom: isMobile ? 20 : 24 }}>
         <div className="container">
           <div style={{
@@ -180,7 +179,6 @@ export default function Home() {
             display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 24, flexWrap: 'wrap',
             maxWidth: 760, margin: '0 auto',
           }}>
-            {/* Icon + text */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 200 }}>
               <div style={{ width: 46, height: 46, borderRadius: '50%', flexShrink: 0, background: 'var(--gradient-btn)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Heart size={20} fill="white" color="white" />
@@ -193,8 +191,9 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Subscribe / subscribed state */}
-            {savedSubEmail ? (
+            {!subLoaded ? (
+              <div style={{ flex: 1, minWidth: isMobile ? '100%' : 240 }} />
+            ) : savedSubEmail ? (
               <div style={{ flex: 1, minWidth: isMobile ? '100%' : 220 }}>
                 <div style={{ background: 'var(--color-surface2)', borderRadius: 10, padding: '10px 14px', border: '1px solid var(--color-border)', marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
@@ -239,10 +238,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── TODAY'S SONG ─────────────────────────────────── */}
       <TodaySong />
 
-      {/* ── OUR JOURNEY ─────────────────────────────────── */}
       <section id="journey" className="section" style={{ paddingTop: isMobile ? 24 : 28 }}>
         <div className="container">
           <div className="section-card">
@@ -287,7 +284,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── GALLERY MOMENTS PREVIEW ──────────────────────── */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <div className="section-card" style={{ overflow: 'hidden' }}>
@@ -319,7 +315,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── LOVE LETTER ─────────────────────────────────── */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <div className="section-card" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 20 : 48, flexWrap: 'nowrap' }}>
@@ -363,7 +358,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── INSTAGRAM ───────────────────────────────────── */}
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <a href="https://instagram.com/alcatales.haven" target="_blank" rel="noopener noreferrer" style={{

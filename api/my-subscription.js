@@ -1,4 +1,4 @@
-// api/unsubscribe-email.js — delete subscriber doc from Firestore
+// api/my-subscription.js — get subscriber email associated with an admin account
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -18,23 +18,21 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { email } = req.body || {};
-  if (!email) return res.status(400).json({ error: 'Email required' });
+  const { adminUsername } = req.body || {};
+  if (!adminUsername) return res.status(400).json({ email: null });
 
   try {
     initAdmin();
     const db = getFirestore();
     const snap = await db.collection('subscribers')
-      .where('email', '==', email.toLowerCase()).get();
+      .where('isAdminSubscriber', '==', true)
+      .where('adminUsername', '==', adminUsername.toLowerCase())
+      .limit(1).get();
 
-    // DELETE docs entirely (not just mark inactive)
-    const batch = db.batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-
-    return res.status(200).json({ success: true, deleted: snap.size });
+    if (snap.empty) return res.status(200).json({ email: null });
+    return res.status(200).json({ email: snap.docs[0].data().email });
   } catch (e) {
-    console.error('unsubscribe-email error:', e);
-    return res.status(500).json({ error: 'Server error' });
+    console.error('my-subscription error:', e);
+    return res.status(200).json({ email: null });
   }
 }
