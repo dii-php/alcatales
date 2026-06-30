@@ -12,7 +12,7 @@ function initAdmin() {
 }
 
 const SITE_URL   = 'https://alcatales.web.id';
-const FROM_EMAIL = 'no-reply@mail.alcatales.web.id';
+const FROM_EMAIL = 'notification@mail.alcatales.web.id';
 const FROM_NAME  = 'ALCA ♡ Aldi & Caca';
 
 const IMGUR_IMG = `
