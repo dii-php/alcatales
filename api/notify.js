@@ -41,7 +41,6 @@ function emailTemplate({ headline, body, btnText, btnUrl, unsubUrl }) {
   <tr><td style="background:white;padding:36px 32px;">
     <h2 style="font-family:Georgia,serif;font-size:22px;color:#3d2b2b;text-align:center;margin:0 0 20px;">${headline}</h2>
     ${body}
-    ${IMGUR_IMG}
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
       <tr><td align="center">
         <a href="${btnUrl}" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#e8857a,#d4607a);color:white;text-decoration:none;border-radius:50px;font-size:15px;font-weight:600;">${btnText} →</a>
