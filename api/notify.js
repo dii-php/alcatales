@@ -17,7 +17,7 @@ const FROM_NAME  = 'ALCA ♡ Aldi & Caca';
 
 // Inline base64 small heart image as CID replacement — use hosted image on same domain
 // so it doesn't go through imgur (spam trigger)
-const EMAIL_BANNER_URL = `${SITE_URL}/assets/email-banner.jpg`;
+const EMAIL_BANNER_URL = `${SITE_URL}/assets/email-banner.png`;
 
 function emailTemplate({ headline, body, btnText, btnUrl, unsubUrl }) {
   return `<!DOCTYPE html>
