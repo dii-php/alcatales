@@ -30,7 +30,7 @@ export default function Home() {
   const [subEmail, setSubEmail]           = useState('');
   const [subStatus, setSubStatus]         = useState('');
   const [savedSubEmail, setSavedSubEmail] = useState('');
-  const [subLoaded, setSubLoaded]         = useState(false);
+  const [subLoaded, setSubLoaded]         = useState(true); // true so form shows immediately, updated async
 
   useEffect(() => {
     const fn = () => setIsMobile(window.innerWidth <= 640);
@@ -47,16 +47,27 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setSubLoaded(false);
+    // Don't hide form during loading — show optimistically from localStorage/empty
+    // then update async when API responds
     if (isAdmin && adminUsername) {
+      // Admin: restore from localStorage instantly while API loads
+      const cachedAdminSub = localStorage.getItem('alca_admin_sub_' + adminUsername);
+      if (cachedAdminSub) setSavedSubEmail(cachedAdminSub);
       fetch('/api/my-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminUsername }),
       })
         .then(r => r.ok ? r.json() : { email: null })
-        .then(data => { setSavedSubEmail(data.email || ''); setSubLoaded(true); })
-        .catch(() => { setSavedSubEmail(''); setSubLoaded(true); });
+        .then(data => {
+          const email = data.email || '';
+          setSavedSubEmail(email);
+          // Cache for instant display next visit
+          if (email) localStorage.setItem('alca_admin_sub_' + adminUsername, email);
+          else localStorage.removeItem('alca_admin_sub_' + adminUsername);
+          setSubLoaded(true);
+        })
+        .catch(() => { setSubLoaded(true); });
     } else {
       const saved = localStorage.getItem(GUEST_EMAIL_KEY);
       setSavedSubEmail(saved || '');
@@ -87,6 +98,7 @@ export default function Home() {
       const result = await subscribeEmail(subEmail, isAdmin, adminUsername);
       const emailLower = subEmail.toLowerCase();
       if (!isAdmin) localStorage.setItem(GUEST_EMAIL_KEY, emailLower);
+      else if (adminUsername) localStorage.setItem('alca_admin_sub_' + adminUsername, emailLower);
       setSavedSubEmail(emailLower);
       setSubStatus(result.message === 'already_subscribed' ? 'exists' : 'done');
       setSubEmail('');
@@ -106,6 +118,7 @@ export default function Home() {
       });
     } catch (e) {}
     if (!isAdmin) localStorage.removeItem(GUEST_EMAIL_KEY);
+    else if (adminUsername) localStorage.removeItem('alca_admin_sub_' + adminUsername);
     setSavedSubEmail('');
     setSubStatus('');
   };

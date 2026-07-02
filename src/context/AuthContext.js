@@ -10,6 +10,12 @@ const SESSION_KEY  = 'alca_admin_session';
 const PERSIST_KEY  = 'alca_admin_persist';
 const USERNAME_KEY = 'alca_admin_username';
 
+// Hardcoded fallback admins (in addition to Firestore)
+const HARDCODED_ADMINS = [
+  { username: 'aldi', password: 'pantoloan87' },
+  { username: 'alca', password: 'alcaa0904'  },
+];
+
 export const AuthProvider = ({ children }) => {
   const [isAdmin, setIsAdmin]             = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
@@ -29,39 +35,32 @@ export const AuthProvider = ({ children }) => {
     const trimUser = username.trim().toLowerCase();
     const trimPass = password.trim();
 
-    let matched = false;
+    // 1. Check hardcoded list first (always works, no network needed)
+    const hardcoded = HARDCODED_ADMINS.some(
+      a => a.username === trimUser && a.password === trimPass
+    );
 
-    try {
-      const snap = await getDocs(collection(db, 'admins'));
-      const docs = snap.docs.map(d => d.data());
-      console.log('[Auth] Loaded admins from Firestore:', docs.map(a => ({
-        username: a.username,
-        usernameType: typeof a.username,
-        passwordLength: a.password?.length,
-      })));
-
-      matched = docs.some(a => {
-        // Normalize both sides aggressively: trim + lowercase + handle non-string values
-        const docUser = String(a.username ?? '').trim().toLowerCase();
-        const docPass = String(a.password ?? '').trim();
-        const isMatch = docUser === trimUser && docPass === trimPass;
-        if (docUser === trimUser && !isMatch) {
-          console.warn(`[Auth] Username matched "${docUser}" but password mismatch. Expected length ${docPass.length}, got length ${trimPass.length}`);
-        }
-        return isMatch;
-      });
-    } catch (e) {
-      console.warn('[Auth] Firestore fetch failed:', e.message);
+    // 2. Check Firestore (for dynamically added admins)
+    let firestoreMatch = false;
+    if (!hardcoded) {
+      try {
+        const snap = await getDocs(collection(db, 'admins'));
+        firestoreMatch = snap.docs.some(d => {
+          const a = d.data();
+          return String(a.username ?? '').trim().toLowerCase() === trimUser
+              && String(a.password ?? '').trim() === trimPass;
+        });
+      } catch (e) {
+        console.warn('[Auth] Firestore fetch failed:', e.message);
+      }
     }
 
-    // Fallback to env vars (only matters for the default admin)
-    if (!matched) {
-      const envUser = (process.env.REACT_APP_ADMIN_USERNAME || 'alca').toLowerCase();
-      const envPass = process.env.REACT_APP_ADMIN_PASSWORD || 'admin123';
-      matched = trimUser === envUser && trimPass === envPass;
-    }
+    // 3. Check env vars (original fallback)
+    const envMatch = !hardcoded && !firestoreMatch &&
+      trimUser === (process.env.REACT_APP_ADMIN_USERNAME || 'alca').toLowerCase() &&
+      trimPass === (process.env.REACT_APP_ADMIN_PASSWORD || 'admin123');
 
-    if (matched) {
+    if (hardcoded || firestoreMatch || envMatch) {
       setIsAdmin(true);
       setAdminUsername(trimUser);
       sessionStorage.setItem(SESSION_KEY, 'true');
@@ -79,7 +78,7 @@ export const AuthProvider = ({ children }) => {
     setAdminUsername('');
     sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(PERSIST_KEY);
-    localStorage.removeItem(USERNAME_KEY); // clear so subscriber history resets to guest view
+    localStorage.removeItem(USERNAME_KEY);
   };
 
   return (

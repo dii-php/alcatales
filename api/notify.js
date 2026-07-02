@@ -12,17 +12,12 @@ function initAdmin() {
 }
 
 const SITE_URL   = 'https://alcatales.web.id';
-const FROM_EMAIL = 'notification@mail.alcatales.web.id';
-const FROM_NAME  = '♡ alcatales';
+const FROM_EMAIL = 'no-reply@mail.alcatales.web.id';
+const FROM_NAME  = 'ALCA ♡ Aldi & Caca';
 
-const IMG = `
-<table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
-  <tr><td align="center">
-    <img src="../src/assets/embed-email.png"
-      alt="ALCA - Aldi & Caca" width="480"
-      style="max-width:100%;border-radius:16px;display:block;" />
-  </td></tr>
-</table>`;
+// Inline base64 small heart image as CID replacement — use hosted image on same domain
+// so it doesn't go through imgur (spam trigger)
+const EMAIL_BANNER_URL = `${SITE_URL}/assets/email-banner.jpg`;
 
 function emailTemplate({ headline, body, btnText, btnUrl, unsubUrl }) {
   return `<!DOCTYPE html>
@@ -33,21 +28,35 @@ function emailTemplate({ headline, body, btnText, btnUrl, unsubUrl }) {
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6f3;padding:40px 16px;">
 <tr><td align="center">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+
   <tr><td style="background:linear-gradient(135deg,#c96a5e,#e8857a,#b5607a);border-radius:20px 20px 0 0;padding:40px 32px;text-align:center;">
     <p style="margin:0 0 6px;color:rgba(255,255,255,0.8);font-size:13px;letter-spacing:.1em;text-transform:uppercase;">ALCA ♡</p>
     <h1 style="margin:0;font-family:Georgia,serif;font-size:32px;color:white;font-style:italic;">Aldi &amp; Caca</h1>
     <p style="margin:8px 0 0;color:rgba(255,255,255,.75);font-size:14px;">Together since 09 April 2026</p>
   </td></tr>
+
   <tr><td style="background:white;padding:36px 32px;">
     <h2 style="font-family:Georgia,serif;font-size:22px;color:#3d2b2b;text-align:center;margin:0 0 20px;">${headline}</h2>
     ${body}
-    ${IMG}
+
+    <!-- Banner image hosted on same domain — avoids spam filters -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+      <tr><td align="center">
+        <img src="${EMAIL_BANNER_URL}"
+          alt="ALCA - Aldi & Caca"
+          width="480"
+          style="max-width:100%;border-radius:16px;display:block;"
+        />
+      </td></tr>
+    </table>
+
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
       <tr><td align="center">
         <a href="${btnUrl}" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#e8857a,#d4607a);color:white;text-decoration:none;border-radius:50px;font-size:15px;font-weight:600;">${btnText} →</a>
       </td></tr>
     </table>
   </td></tr>
+
   <tr><td style="background:#fff5f5;border-radius:0 0 20px 20px;padding:24px 32px;text-align:center;">
     <p style="margin:0 0 8px;color:#c9a09a;font-size:12px;line-height:1.6;">
       Kamu menerima email ini karena berlangganan notifikasi dari ALCA.
@@ -55,6 +64,7 @@ function emailTemplate({ headline, body, btnText, btnUrl, unsubUrl }) {
     <a href="${unsubUrl}" style="color:#e8857a;font-size:12px;">Berhenti berlangganan</a>
     <p style="margin:12px 0 0;color:#d4b0b0;font-size:11px;">Made with ♡ for our forever story.</p>
   </td></tr>
+
 </table>
 </td></tr>
 </table>
@@ -88,7 +98,7 @@ function buildEmail({ type, data, token }) {
 
   const { id, from, preview } = data;
   return {
-    subject: `💌 Surat dari ${from} — ALCA`,
+    subject: `💌 Surat cinta baru dari ${from} — ALCA`,
     html: emailTemplate({
       headline: '💌 Ada Surat Cinta Baru!',
       body: `
@@ -113,71 +123,48 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Auth: only enforce if INTERNAL_NOTIFY_KEY is configured
   const configuredKey = process.env.INTERNAL_NOTIFY_KEY;
-  if (configuredKey) {
-    if (req.headers['x-internal-key'] !== configuredKey) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  if (configuredKey && req.headers['x-internal-key'] !== configuredKey) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const { type, data, senderAdminUsername = '' } = req.body || {};
   if (!type || !data) return res.status(400).json({ error: 'Missing type or data' });
 
   const RESEND_KEY = process.env.RESEND_API_KEY;
-  if (!RESEND_KEY) {
-    console.error('[notify] RESEND_API_KEY not set');
-    return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
-  }
+  if (!RESEND_KEY) return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
 
   try {
     initAdmin();
     const db = getFirestore();
-
     const snap = await db.collection('subscribers').where('active', '==', true).get();
-    console.log(`[notify] ${snap.size} active subscribers`);
-    if (snap.empty) return res.status(200).json({ sent: 0, message: 'No subscribers' });
+    if (snap.empty) return res.status(200).json({ sent: 0 });
 
     let sent = 0;
     const errors = [];
-    const skipped = [];
 
     for (const docSnap of snap.docs) {
       const { email, token, isAdminSubscriber, adminUsername } = docSnap.data();
-      if (!email || !token) { skipped.push('missing data'); continue; }
-
-      // Skip the admin who triggered this notification
+      if (!email || !token) continue;
       if (isAdminSubscriber && adminUsername && senderAdminUsername &&
-          adminUsername.toLowerCase() === senderAdminUsername.toLowerCase()) {
-        skipped.push(`self: ${email}`);
-        continue;
-      }
+          adminUsername.toLowerCase() === senderAdminUsername.toLowerCase()) continue;
 
       const { subject, html } = buildEmail({ type, data, token });
-
       try {
         const r = await fetch('https://api.resend.com/emails', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${RESEND_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: `${FROM_NAME} <${FROM_EMAIL}>`,
-            to: [email], subject, html,
-          }),
+          headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: `${FROM_NAME} <${FROM_EMAIL}>`, to: [email], subject, html }),
         });
         const result = await r.json();
-        if (r.ok) { sent++; console.log(`[notify] ✓ ${email}`); }
-        else { errors.push({ email, status: r.status, detail: result }); console.error(`[notify] ✗ ${email}:`, result); }
+        if (r.ok) sent++;
+        else errors.push({ email, status: r.status, detail: result });
       } catch (e) {
         errors.push({ email, error: e.message });
-        console.error(`[notify] exception ${email}:`, e.message);
       }
     }
 
-    console.log(`[notify] sent=${sent} skipped=${skipped.length} errors=${errors.length}`);
-    return res.status(200).json({ sent, skipped, errors });
+    return res.status(200).json({ sent, errors });
   } catch (err) {
     console.error('[notify] fatal:', err);
     return res.status(500).json({ error: err.message });
