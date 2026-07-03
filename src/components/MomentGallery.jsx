@@ -1,5 +1,5 @@
 // src/components/MomentGallery.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Upload, Trash2, Image, Loader } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getGalleryByMoment, addGalleryItem, deleteGalleryItem } from '../utils/dataService';
@@ -17,13 +17,13 @@ export default function MomentGallery({ moment, onClose }) {
   const [previews, setPreviews] = useState([]);
   const [showUpload, setShowUpload] = useState(false);
 
-  useEffect(() => { fetchPhotos(); }, [moment.id]);
-
-  const fetchPhotos = async () => {
+  const fetchPhotos = useCallback(async () => {
     setLoading(true);
     try { setPhotos(await getGalleryByMoment(moment.id)); } catch (e) { console.error(e); }
     setLoading(false);
-  };
+  }, [moment.id]);
+
+  useEffect(() => { fetchPhotos(); }, [fetchPhotos]);
 
   const handleFiles = (e) => {
     const selected = Array.from(e.target.files);

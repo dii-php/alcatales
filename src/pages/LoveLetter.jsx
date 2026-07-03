@@ -90,7 +90,7 @@ export default function LoveLetter() {
     const start = (page - 1) * PAGE_SIZE;
     return letters.slice(start, start + PAGE_SIZE);
   }, [letters, page]);
-  useEffect(() => { if (page > totalPages) setPage(Math.max(1, totalPages)); }, [totalPages]);
+  useEffect(() => { if (page > totalPages) setPage(Math.max(1, totalPages)); }, [page, totalPages]);
 
   const openAdd = () => { setForm(EMPTY_FORM); setEditTarget(null); setModalMode('add'); };
   const openEdit = (letter) => {
