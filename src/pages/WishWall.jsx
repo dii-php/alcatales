@@ -136,7 +136,7 @@ export default function WishWall() {
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-              <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{wishes.length} ucapan diberikan</p>
+              <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{wishes.length} Harapan diberikan.</p>
               <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} compact />
             </div>
 
@@ -289,24 +289,6 @@ export default function WishWall() {
             }}>
               "{open.message}"
             </div>
-
-            <button
-              onClick={() => navigate(`/wish-wall/${open.id}`)}
-              style={{
-                marginTop: 14,
-                background: 'none',
-                border: 'none',
-                color: getCardAccent(open.id).dot,
-                fontSize: 13,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: 0,
-                fontWeight: 600,
-              }}
-            >
-            </button>
 
             {canDelete && (
               <button onClick={() => handleDelete(open.id)} style={{

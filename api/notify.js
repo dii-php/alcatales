@@ -101,10 +101,10 @@ function buildEmail({ type, data, token }) {
     return {
       subject: `✨ Ucapan baru dari ${name} — ALCA`,
       html: emailTemplate({
-        headline: '✨ Ada Harapan Baru Untuk Kalian Berdua',
+        headline: '✨ Ada Ucapan Baru di Wish Wall!',
         body: `
           <p style="font-size:15px;color:#5a3a3a;text-align:center;line-height:1.7;margin:0 0 16px;">
-            Seseorang baru saja meninggalkan ucapan manis untuk Alca.
+            Seseorang baru saja memberikan harapan untuk Alca.
           </p>
           <div style="background:linear-gradient(135deg,#fff5f5,#ffeaea);border-radius:16px;padding:24px;text-align:center;">
             <p style="font-family:Georgia,serif;font-style:italic;font-size:13px;color:#e8857a;margin:0 0 12px;">♡ Dari ${name}</p>
