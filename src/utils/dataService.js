@@ -162,3 +162,37 @@ export const sendNotification = async (type, data, senderAdminUsername = '') => 
     console.warn('[notify] failed:', e.message);
   }
 };
+
+// ── WISH WALL ─────────────────────────────────────────────
+export const getWishes = async () => {
+  const q = query(collection(db, 'wishes'), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map(serialize);
+};
+
+export const addWish = async ({ name, message, songId = null, songTitle = null, songThumbnail = null, channelTitle = null }) => {
+  return addDoc(collection(db, 'wishes'), {
+    name: name?.trim() || 'Anonymous',
+    message,
+    songId, songTitle, songThumbnail, channelTitle,
+    createdAt: serverTimestamp(),
+  });
+};
+
+export const deleteWish = async (id) => deleteDoc(doc(db, 'wishes', id));
+
+// ── GALLERY DISPLAY SETTINGS ──────────────────────────────
+// Admin can pin up to 10 photo IDs to show in gallery display
+export const getGalleryDisplay = async () => {
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'gallery_display'));
+    return snap.exists() ? snap.data() : { pinnedIds: [] };
+  } catch (e) { return { pinnedIds: [] }; }
+};
+
+export const setGalleryDisplay = async (pinnedIds) => {
+  return setDoc(doc(db, 'settings', 'gallery_display'), {
+    pinnedIds,
+    updatedAt: serverTimestamp(),
+  });
+};

@@ -1,4 +1,3 @@
-// src/App.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -11,6 +10,7 @@ import Gallery from './pages/Gallery';
 import Timeline from './pages/Timeline';
 import LoveLetter from './pages/LoveLetter';
 import LetterView from './pages/LetterView';
+import WishWall from './pages/WishWall';
 
 export default function App() {
   return (
@@ -26,6 +26,7 @@ export default function App() {
               <Route path="/timeline" element={<Timeline />} />
               <Route path="/love-letter" element={<LoveLetter />} />
               <Route path="/love-letter/:id" element={<LetterView />} />
+              <Route path="/wish-wall" element={<WishWall />} />
             </Routes>
           </main>
           <Footer />
