@@ -4,7 +4,7 @@ import { Plus, Trash2, Heart, X, Upload, Image, Pin, PinOff, Settings } from 'lu
 import { useAuth } from '../context/AuthContext';
 import {
   getGallery, addGalleryItem, deleteGalleryItem,
-  updateGalleryItemMoment, getMoments,
+  getMoments,
   getGalleryDisplay, setGalleryDisplay,
 } from '../utils/dataService';
 import { uploadToCloudinary } from '../utils/cloudinary';
@@ -140,12 +140,6 @@ export default function Gallery() {
   // All photos with pagination
   const totalPages  = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const pagedItems  = useMemo(() => items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [items, page]);
-  const momentMap   = useMemo(() => {
-    const m = {};
-    moments.forEach(mo => { m[mo.id] = mo.title; });
-    return m;
-  }, [moments]);
-
   const handlePin = useCallback(async (id) => {
     setSavingPin(true);
     let newPins;

@@ -11,6 +11,7 @@ import Timeline from './pages/Timeline';
 import LoveLetter from './pages/LoveLetter';
 import LetterView from './pages/LetterView';
 import WishWall from './pages/WishWall';
+import WishView from './pages/WishView';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="/love-letter" element={<LoveLetter />} />
               <Route path="/love-letter/:id" element={<LetterView />} />
               <Route path="/wish-wall" element={<WishWall />} />
+              <Route path="/wish-wall/:id" element={<WishView />} />
             </Routes>
           </main>
           <Footer />

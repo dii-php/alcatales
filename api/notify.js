@@ -96,6 +96,27 @@ function buildEmail({ type, data, token }) {
     };
   }
 
+  if (type === 'wish') {
+    const { id, name, preview } = data;
+    return {
+      subject: `✨ Ucapan baru dari ${name} — ALCA`,
+      html: emailTemplate({
+        headline: '✨ Ada Ucapan Baru di Wish Wall!',
+        body: `
+          <p style="font-size:15px;color:#5a3a3a;text-align:center;line-height:1.7;margin:0 0 16px;">
+            Seseorang baru saja meninggalkan ucapan manis untuk Aldi &amp; Caca.
+          </p>
+          <div style="background:linear-gradient(135deg,#fff5f5,#ffeaea);border-radius:16px;padding:24px;text-align:center;">
+            <p style="font-family:Georgia,serif;font-style:italic;font-size:13px;color:#e8857a;margin:0 0 12px;">♡ Dari ${name}</p>
+            <p style="font-family:Georgia,serif;font-style:italic;font-size:17px;color:#5a3a3a;line-height:1.7;margin:0;">"${preview}..."</p>
+          </div>`,
+        btnText: 'Buka Wish Wall',
+        btnUrl: `${SITE_URL}/wish-wall/${id}`,
+        unsubUrl,
+      }),
+    };
+  }
+
   const { id, from, preview } = data;
   return {
     subject: `💌 Surat cinta baru dari ${from} — ALCA`,
@@ -137,16 +158,41 @@ export default async function handler(req, res) {
   try {
     initAdmin();
     const db = getFirestore();
-    const snap = await db.collection('subscribers').where('active', '==', true).get();
-    if (snap.empty) return res.status(200).json({ sent: 0 });
+    const activeSubscribers = await db.collection('subscribers').where('active', '==', true).get();
+    if (activeSubscribers.empty) return res.status(200).json({ sent: 0 });
+
+    let recipientDocs = activeSubscribers.docs;
+
+    if (type === 'wish') {
+      const adminSnap = await db.collection('admins').get();
+      const adminUsernames = new Set(
+        adminSnap.docs
+          .map((docSnap) => String(docSnap.data()?.username || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+
+      if (adminUsernames.size === 0) {
+        return res.status(200).json({ sent: 0, skipped: 'no_admins_found' });
+      }
+
+      recipientDocs = activeSubscribers.docs.filter((docSnap) => {
+        const data = docSnap.data();
+        const username = String(data.adminUsername || '').trim().toLowerCase();
+        return Boolean(data.isAdminSubscriber && username && adminUsernames.has(username));
+      });
+    }
+
+    if (recipientDocs.length === 0) {
+      return res.status(200).json({ sent: 0, skipped: type === 'wish' ? 'no_admin_subscribers' : 'no_recipients' });
+    }
 
     let sent = 0;
     const errors = [];
 
-    for (const docSnap of snap.docs) {
+    for (const docSnap of recipientDocs) {
       const { email, token, isAdminSubscriber, adminUsername } = docSnap.data();
       if (!email || !token) continue;
-      if (isAdminSubscriber && adminUsername && senderAdminUsername &&
+      if (type !== 'wish' && isAdminSubscriber && adminUsername && senderAdminUsername &&
           adminUsername.toLowerCase() === senderAdminUsername.toLowerCase()) continue;
 
       const { subject, html } = buildEmail({ type, data, token });
