@@ -1,8 +1,9 @@
 // src/pages/WishWall.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { Heart, Star, Trash2, X, Send, Music } from 'lucide-react';
+import { Heart, Star, Trash2, X, Send, Music, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getWishes, addWish, deleteWish } from '../utils/dataService';
+import { getWishes, addWish, deleteWish, sendNotification } from '../utils/dataService';
 import YouTubeSearch from '../components/YouTubeSearch';
 import Pagination from '../components/Pagination';
 
@@ -39,6 +40,7 @@ function getCardAccent(id) {
 
 export default function WishWall() {
   const { isAdmin, adminUsername } = useAuth();
+  const navigate = useNavigate();
   const [wishes, setWishes]     = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -64,14 +66,17 @@ export default function WishWall() {
     if (!form.message.trim()) return;
     setSending(true);
     try {
-      await addWish({
+      const payload = {
         name:          form.name.trim() || 'Anonymous',
         message:       form.message.trim(),
         songId:        form.song?.id || null,
         songTitle:     form.song?.title || null,
         songThumbnail: form.song?.thumbnail || null,
         channelTitle:  form.song?.channelTitle || null,
-      });
+      };
+      const docRef = await addWish(payload);
+      const preview = payload.message.substring(0, 80);
+      sendNotification('wish', { name: payload.name, preview, id: docRef.id }, adminUsername);
       setSent(true);
       setForm({ name: '', message: '', song: null });
       setTimeout(() => { setSent(false); setShowForm(false); }, 2000);
@@ -131,7 +136,7 @@ export default function WishWall() {
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-              <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{wishes.length} ucapan tersimpan ✨</p>
+              <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{wishes.length} ucapan diberikan</p>
               <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} compact />
             </div>
 
@@ -206,6 +211,25 @@ export default function WishWall() {
                       </div>
                       <span style={{ fontSize: 10, color: '#aaa' }}>{formatDate(wish.createdAt)}</span>
                     </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                      <button
+                        onClick={e => { e.stopPropagation(); navigate(`/wish-wall/${wish.id}`); }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: accent.dot,
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        <ExternalLink size={12} /> Buka
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -221,6 +245,13 @@ export default function WishWall() {
         <div className="modal-overlay" onClick={() => setOpen(null)}>
           <div className="modal-box" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
             <button onClick={() => setOpen(null)} style={{ position: 'absolute', top: 14, right: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}><X size={20} /></button>
+            <button
+              onClick={() => navigate(`/wish-wall/${open.id}`)}
+              style={{ position: 'absolute', top: 14, right: 46, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+              title="Buka halaman penuh"
+            >
+              <ExternalLink size={18} />
+            </button>
 
             {/* Seal */}
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
@@ -258,6 +289,24 @@ export default function WishWall() {
             }}>
               "{open.message}"
             </div>
+
+            <button
+              onClick={() => navigate(`/wish-wall/${open.id}`)}
+              style={{
+                marginTop: 14,
+                background: 'none',
+                border: 'none',
+                color: getCardAccent(open.id).dot,
+                fontSize: 13,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: 0,
+                fontWeight: 600,
+              }}
+            >
+            </button>
 
             {canDelete && (
               <button onClick={() => handleDelete(open.id)} style={{
