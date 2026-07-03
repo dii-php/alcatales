@@ -12,12 +12,19 @@ function toDate(ts) {
   return isNaN(d) ? null : d;
 }
 
-function formatDate(ts) {
-  const d = toDate(ts);
-  if (!d) return '';
-  const utc8 = new Date(d.getTime() + 8 * 60 * 60 * 1000);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${utc8.getUTCDate()} ${months[utc8.getUTCMonth()]} ${utc8.getUTCFullYear()}`;
+function formatDate(ts, prefix = false) {
+  const date = toDate(ts);
+  if (!date) return '';
+  const d = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const mon = MONTHS[d.getUTCMonth()];
+  const day = d.getUTCDate();
+  const year = d.getUTCFullYear();
+  const h = String(d.getUTCHours()).padStart(2, '0');
+  const m = String(d.getUTCMinutes()).padStart(2, '0');
+  const s = String(d.getUTCSeconds()).padStart(2, '0');
+  const str = `${mon} ${day}, ${year} at ${h}:${m}:${s} UTC+8`;
+  return prefix ? `Sent on ${str}` : str;
 }
 
 function getCardAccent(id = '') {
@@ -105,7 +112,7 @@ export default function WishView() {
             Dari {wish.name}
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: 14 }}>
-            Tersimpan di Wish Wall pada {formatDate(wish.createdAt)}
+            Sebuah harapan merupakan awal dari sebuah perjalanan panjang untuk saling melengkapi dan menua bersama.
           </p>
         </div>
       </div>
@@ -146,7 +153,7 @@ export default function WishView() {
             border: `1px solid ${accent.border}`,
             borderRadius: 20,
             padding: '28px 24px',
-            fontFamily: 'Playfair Display',
+            fontFamily: "'Caveat', 'Patrick Hand', cursive",
             fontStyle: 'italic',
             fontSize: 'clamp(18px, 2.8vw, 24px)',
             color: '#3d2b2b',
@@ -160,7 +167,7 @@ export default function WishView() {
         </div>
 
         <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--color-text-muted)', opacity: 0.75, marginTop: 18 }}>
-          Ditinggalkan oleh {wish.name} pada {formatDate(wish.createdAt)}
+          Sent on {formatDate(wish.createdAt, true)}
         </p>
 
         <div style={{ textAlign: 'center', marginTop: 40 }}>
