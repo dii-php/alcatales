@@ -6,7 +6,7 @@ Website kecil yang saya buat untuk menyimpan cerita, foto, dan berbagai momen be
 
 ## Tentang
 
-AlcaTales adalah tempat untuk mengabadikan perjalanan kami dalam bentuk website. Isinya berupa cerita, galeri foto, timeline, dan beberapa hal sederhana yang memiliki kenangan tersendiri.
+Alcatales adalah tempat untuk mengabadikan perjalanan kami. Diambil dari gabungan nama kami berdua, Aldi & Caca dan juga tales (Cerita). Isinya berupa cerita, galeri foto, timeline, dan beberapa hal sederhana yang memiliki kenangan tersendiri.
 
 Project ini masih akan terus saya kembangkan seiring waktu, baik dari sisi tampilan maupun fiturnya.
 
@@ -29,4 +29,4 @@ Project ini masih akan terus saya kembangkan seiring waktu, baik dari sisi tampi
 
 ---
 
-Repository ini merupakan source code untuk website **AlcaTales** yang dapat diakses di **https://alcatales.web.id**.
+Repository ini merupakan source code untuk website **Alcatales** yang dapat diakses di **https://alcatales.web.id**.
