@@ -373,7 +373,7 @@ export default function Home() {
 
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
-          <a href="https://instagram.com/alcatales.haven" target="_blank" rel="noopener noreferrer" style={{
+          <a href="https://www.instagram.com/alcatales.haven_?dlrf=Z2RxZnJxajR2YXRr" target="_blank" rel="noopener noreferrer" style={{
             display: 'flex', alignItems: 'center', gap: 16,
             background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)',
             borderRadius: 16, padding: isMobile ? '18px 20px' : '24px 32px',
@@ -387,7 +387,7 @@ export default function Home() {
             </div>
             <div style={{ flex: 1 }}>
               <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kita di Instagram</p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>@alcatales.haven</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>@alcatales.haven_</p>
             </div>
             <ArrowRight size={18} color="white" style={{ flexShrink: 0 }} />
           </a>
