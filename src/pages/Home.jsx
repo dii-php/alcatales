@@ -170,11 +170,13 @@ export default function Home() {
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: isMobile ? 13 : 15, marginBottom: 32, letterSpacing: '0.05em' }}>
             Together since 09 April 2026 · 19:17 GMT+8
+            <br />
+            Ends on 24 November 2026 · 18:41:32 GMT+8
           </p>
           <Countdown />
           <div style={{ marginTop: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'rgba(255,255,255,0.88)', fontSize: isMobile ? 13 : 15, fontStyle: 'italic', flexWrap: 'wrap', padding: '0 8px' }}>
             <Heart size={13} fill="rgba(255,255,255,0.7)" color="rgba(255,255,255,0.7)" style={{ animation: 'pulse 2s infinite', flexShrink: 0 }} />
-            <span>Every second with you is my favorite part of life.</span>
+            <span>Thank you for everything.</span>
             <Heart size={13} fill="rgba(255,255,255,0.7)" color="rgba(255,255,255,0.7)" style={{ animation: 'pulse 2s infinite 0.5s', flexShrink: 0 }} />
           </div>
         </div>
@@ -373,7 +375,7 @@ export default function Home() {
 
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
-          <a href="https://www.instagram.com/alcatales.haven_?dlrf=Z2RxZnJxajR2YXRr" target="_blank" rel="noopener noreferrer" style={{
+          <a href="https://instagram.com/alcatales.haven" target="_blank" rel="noopener noreferrer" style={{
             display: 'flex', alignItems: 'center', gap: 16,
             background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)',
             borderRadius: 16, padding: isMobile ? '18px 20px' : '24px 32px',
@@ -386,8 +388,8 @@ export default function Home() {
               <Instagram size={22} color="white" />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kami di Instagram</p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>@alcatales.haven_</p>
+              <p style={{ fontWeight: 600, color: 'white', marginBottom: 2, fontSize: isMobile ? 14 : 15 }}>Follow perjalanan kita di Instagram</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>@alcatales.haven</p>
             </div>
             <ArrowRight size={18} color="white" style={{ flexShrink: 0 }} />
           </a>
