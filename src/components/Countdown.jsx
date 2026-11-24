@@ -3,7 +3,7 @@
 import React, { useState, useEffect, memo } from 'react';
 
 const START_MS = new Date('2026-04-09T19:17:00+08:00').getTime();
-const END_MS   = new Date('2026-11-24T18:41:00+08:00').getTime();
+const END_MS   = new Date('2026-11-24T18:41:32+08:00').getTime();
 
 function getElapsedFrom(nowMs) {
   const diff = Math.max(0, Math.floor((nowMs - START_MS) / 1000));
@@ -27,16 +27,7 @@ const TimeBox = memo(function TimeBox({ value, label, isMobile }) {
 });
 
 const RED_CSS = `
-  .cd-stopped .cd-box {
-    background: rgba(110, 0, 20, 0.38) !important;
-    border-color: rgba(255, 80, 80, 0.55) !important;
-  }
-  .cd-stopped .cd-value,
-  .cd-stopped .cd-colon {
-    color: #ff4d4d !important;
-    text-shadow: 0 0 14px rgba(255, 40, 40, 0.45);
-  }
-  .cd-stopped .cd-label { color: #ff9a9a !important; }
+  .cd-stopped .cd-value { color: #ff4d4d !important; }
 `;
 
 export default function Countdown() {
